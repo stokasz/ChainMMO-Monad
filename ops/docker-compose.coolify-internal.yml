@@ -1,0 +1,119 @@
+services:
+  # Internal-only stack for running a second environment on the same host without
+  # binding public ports (80/443). Intended for Coolify "main" app bring-up
+  # while the testnet edge stack is still serving production traffic.
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    cpus: "0.75"
+    mem_limit: "1024m"
+    mem_reservation: "256m"
+    # NOTE: The shared Coolify network already has a container aliased as
+    # "postgres" (Coolify's own DB). When the mid container is attached to that
+    # network, "postgres" becomes ambiguous. Use a unique alias for the app DB.
+    networks:
+      default:
+        aliases:
+          - postgres-mainnet
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      POSTGRES_DB: chainmmo
+      POSTGRES_USER: chainmmo
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chainmmo -d chainmmo"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  mid:
+    build:
+      context: ..
+      dockerfile: mid/Dockerfile
+    restart: unless-stopped
+    cpus: "1.25"
+    mem_limit: "1536m"
+    mem_reservation: "384m"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    # Attach to the shared Coolify network so the edge Caddy (testnet app) can
+    # route mainnet origins to this internal-only stack.
+    networks:
+      default: {}
+      coolify:
+        aliases:
+          - mid-mainnet
+    ports:
+      - "${HOST_API_BIND:-127.0.0.1}:${HOST_API_PORT:-8788}:8787"
+    environment:
+      NODE_ENV: production
+      MID_MODE: ${MID_MODE:-read-only}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      CHAIN_RPC_URL: ${CHAIN_RPC_URL}
+      CHAIN_ID: ${CHAIN_ID}
+      CHAIN_CONFIRMATIONS: ${CHAIN_CONFIRMATIONS:-2}
+      CHAIN_START_BLOCK: ${CHAIN_START_BLOCK:-1}
+
+      GAMEWORLD_ADDRESS: ${GAMEWORLD_ADDRESS}
+      FEEVAULT_ADDRESS: ${FEEVAULT_ADDRESS}
+      ITEMS_ADDRESS: ${ITEMS_ADDRESS}
+      MMO_ADDRESS: ${MMO_ADDRESS}
+      TRADE_ESCROW_ADDRESS: ${TRADE_ESCROW_ADDRESS}
+      RFQ_MARKET_ADDRESS: ${RFQ_MARKET_ADDRESS}
+      MMODISTRIBUTOR_ADDRESS: ${MMODISTRIBUTOR_ADDRESS:-}
+
+      DATABASE_URL: postgres://chainmmo:${POSTGRES_PASSWORD}@postgres-mainnet:5432/chainmmo
+
+      API_HOST: 0.0.0.0
+      API_PORT: 8787
+      API_KEY: ${API_KEY:-}
+      MCP_STIPEND_WALLET_PRIVATE_KEY: ${MCP_STIPEND_WALLET_PRIVATE_KEY:-}
+      MCP_STIPEND_ENABLED: ${MCP_STIPEND_ENABLED:-false}
+      MCP_STIPEND_AMOUNT_WEI: ${MCP_STIPEND_AMOUNT_WEI:-100000000000000000}
+      MCP_STIPEND_MIN_BALANCE_WEI: ${MCP_STIPEND_MIN_BALANCE_WEI:-100000000000000000}
+      MCP_STIPEND_WALLET_MIN_BALANCE_WEI: ${MCP_STIPEND_WALLET_MIN_BALANCE_WEI:-200000000000000000}
+      MCP_STIPEND_ADDRESS_COOLDOWN_SECONDS: ${MCP_STIPEND_ADDRESS_COOLDOWN_SECONDS:-900}
+      MCP_STIPEND_PER_ADDRESS_LIMIT_PER_WINDOW: ${MCP_STIPEND_PER_ADDRESS_LIMIT_PER_WINDOW:-2}
+      MCP_STIPEND_GLOBAL_PER_HOUR_LIMIT: ${MCP_STIPEND_GLOBAL_PER_HOUR_LIMIT:-60}
+      CHAIN_PUBLIC_RPC_URLS: ${CHAIN_PUBLIC_RPC_URLS:-}
+      CHAIN_PUBLIC_RPC_URL: ${CHAIN_PUBLIC_RPC_URL:-}
+
+      # X OAuth 1.0a (Sign in with X) for verified wallet <-> X linking.
+      X_CONSUMER_KEY: ${X_CONSUMER_KEY:-}
+      X_CONSUMER_SECRET: ${X_CONSUMER_SECRET:-}
+      X_OAUTH_CALLBACK_URL: ${X_OAUTH_CALLBACK_URL:-}
+      X_WEB_ORIGIN: ${X_WEB_ORIGIN:-}
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8787/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+volumes:
+  postgres_data:
+
+networks:
+  # Created by the Coolify installer.
+  coolify:
+    external: true
+    name: coolify

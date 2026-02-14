@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+BIN="$ROOT/.tools/gitleaks/gitleaks"
+if [ ! -x "$BIN" ]; then
+  echo "gitleaks not installed. Run: ./script/install-gitleaks.sh" >&2
+  exit 1
+fi
+
+# Scan staged content only (so local `.env` doesn't trip the hook).
+"$BIN" protect --staged --redact

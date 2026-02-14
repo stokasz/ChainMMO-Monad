@@ -1,0 +1,113 @@
+name: ChainMMO CI
+
+permissions: {}
+
+on:
+  push:
+    paths:
+      - "back/**"
+      - "mid/**"
+      - "front/**"
+      - ".github/workflows/chainmmo-*.yml"
+  pull_request:
+  workflow_dispatch:
+
+env:
+  FOUNDRY_PROFILE: ci
+
+jobs:
+  back-contracts:
+    name: Back contracts (Solar dev + Solc prod checks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: back
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: recursive
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Show Forge version
+        run: forge --version
+
+      - name: Solc format check
+        run: forge fmt --check
+
+      - name: Solc production build
+        run: forge build --use solc:0.8.26
+
+      - name: Contract size check (Monad limits)
+        run: python3 script/check-contract-sizes.py --preset monad
+
+      - name: Solc production tests
+        run: forge test -vv --use solc:0.8.26
+
+  mid-infra:
+    name: Mid infra checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: mid
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "mid/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+  front-web:
+    name: Front web checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: front
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "front/package-lock.json"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run lint
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build

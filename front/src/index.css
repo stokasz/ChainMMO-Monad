@@ -1,0 +1,374 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@keyframes chainmmo-sheen {
+  0% {
+    transform: translate3d(-180%, 0, 0) rotate(12deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.28;
+  }
+  55% {
+    opacity: 0.14;
+  }
+  100% {
+    transform: translate3d(280%, 0, 0) rotate(12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes chainmmo-slowspin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes chainmmo-ember-rise {
+  0% {
+    transform: translate3d(0, 20vh, 0);
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate3d(-10vw, -20vh, 0);
+    opacity: 0.3;
+  }
+}
+
+@keyframes chainmmo-fog-drift {
+  0% {
+    transform: translateX(-5%) scaleX(1.1);
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translateX(5%) scaleX(0.9);
+    opacity: 0.4;
+  }
+}
+
+/* Self-hosted fonts (see front/public/fonts + OFL license files). */
+@font-face {
+  font-family: "Cinzel";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cinzel";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cinzel";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cinzel";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cinzel";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cinzel";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Cinzel Decorative";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-decorative-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cinzel Decorative";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src:
+    url("/fonts/cinzel-decorative-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("/fonts/cormorant-garamond-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src:
+    url("/fonts/cormorant-garamond-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src:
+    url("/fonts/cormorant-garamond-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src:
+    url("/fonts/cormorant-garamond-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    url("/fonts/cormorant-garamond-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Cormorant Garamond";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src:
+    url("/fonts/cormorant-garamond-latin-ext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  html {
+    @apply h-full;
+  }
+
+  body {
+    @apply m-0 h-full font-body text-zinc-100 antialiased;
+    background-color: #0A0A0A;
+    background-image:
+      radial-gradient(600px 400px at 50% 30%, rgba(232, 165, 69, 0.04), transparent 70%),
+      linear-gradient(to bottom, rgba(10, 10, 10, 0.82), rgba(10, 10, 10, 0.65)),
+      url("../assets/dark-fantasy.jpg");
+    background-image:
+      radial-gradient(600px 400px at 50% 30%, rgba(232, 165, 69, 0.04), transparent 70%),
+      linear-gradient(to bottom, rgba(10, 10, 10, 0.82), rgba(10, 10, 10, 0.65)),
+      image-set(
+        url("../assets/dark-fantasy.webp") type("image/webp"),
+        url("../assets/dark-fantasy.jpg") type("image/jpeg")
+      );
+    background-position: center;
+    background-repeat: no-repeat;
+    /* Don't upscale the source background image on large displays. */
+    background-size: cover, cover, min(100%, 1920px) auto;
+    /* Keep the background sized to the viewport (original look) while remaining
+       visible through the full scroll. */
+    background-attachment: fixed;
+  }
+
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -35%;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle, rgba(232, 165, 69, 0.12) 0 1px, transparent 1.6px),
+      radial-gradient(circle, rgba(193, 115, 40, 0.08) 0 1px, transparent 2px),
+      radial-gradient(circle, rgba(139, 69, 19, 0.06) 0 1px, transparent 2.2px);
+    background-size: 160px 160px, 240px 240px, 400px 400px;
+    background-position: 0 0, 60px 120px, 120px 40px;
+    opacity: 0.4;
+    transform: translate3d(0, 0, 0);
+    will-change: transform;
+    animation: chainmmo-ember-rise 22s linear infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body::before {
+      animation: none;
+    }
+  }
+
+  /* Mobile browsers often perform poorly with fixed backgrounds. */
+  @media (max-width: 768px) {
+    body {
+      background-attachment: scroll;
+    }
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+  }
+
+  a {
+    @apply text-inherit;
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    @apply font-mono;
+  }
+}
+
+@layer components {
+  .ds-diamond-sep {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem 0;
+  }
+  .ds-diamond-sep::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 8px;
+    height: 8px;
+    background: #C8AA6E;
+    transform: translate(-50%, -50%) rotate(45deg);
+    box-shadow: 0 0 8px 2px rgba(200, 170, 110, 0.3);
+    z-index: 1;
+  }
+  .ds-diamond-sep::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 10%;
+    right: 10%;
+    height: 1px;
+    background: linear-gradient(
+      to right,
+      transparent,
+      rgba(200, 170, 110, 0.2) 40%,
+      rgba(200, 170, 110, 0.2) 60%,
+      transparent
+    );
+  }
+
+  .ds-fog-divider {
+    position: relative;
+    height: 40px;
+    overflow: hidden;
+    pointer-events: none;
+  }
+  .ds-fog-divider::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(
+      ellipse 80% 100% at 50% 50%,
+      rgba(255, 255, 255, 0.03),
+      transparent
+    );
+    animation: chainmmo-fog-drift 12s ease-in-out infinite alternate;
+  }
+
+  .ds-item-box {
+    border: 1px solid rgba(200, 170, 110, 0.1);
+    background: rgba(10, 10, 10, 0.9);
+    padding: 1.25rem 1.5rem;
+  }
+
+  .ds-container {
+    border: 1px solid rgba(200, 170, 110, 0.06);
+    background: rgba(10, 10, 10, 0.85);
+  }
+
+  .ds-hud-bar {
+    border: 1px solid rgba(200, 170, 110, 0.08);
+    background: rgba(10, 10, 10, 0.9);
+  }
+}
+
+@layer utilities {
+  .ds-diamond-bullet {
+    list-style: none;
+    padding-left: 0;
+  }
+  .ds-diamond-bullet > li {
+    position: relative;
+    padding-left: 1.25rem;
+  }
+  .ds-diamond-bullet > li::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0.55em;
+    width: 6px;
+    height: 6px;
+    background: #C8AA6E;
+    transform: rotate(45deg);
+    opacity: 0.7;
+  }
+}

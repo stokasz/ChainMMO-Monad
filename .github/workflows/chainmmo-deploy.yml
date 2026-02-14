@@ -1,0 +1,258 @@
+name: ChainMMO Deploy
+
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "GitHub Environment to use (testnet or mainnet). This controls secrets + optional approval gates."
+        required: true
+        type: choice
+        options:
+          - testnet
+          - mainnet
+        default: testnet
+      confirm_testnet:
+        description: "Safety gate: must be true to deploy to testnet."
+        required: true
+        type: boolean
+        default: false
+      confirm_mainnet:
+        description: "Safety gate: must be true to deploy to mainnet."
+        required: true
+        type: boolean
+        default: false
+      chain_id:
+        description: "Target chain id (Monad testnet=10143, Monad mainnet=143)"
+        required: true
+        default: "10143"
+      deploy_test_mmo:
+        description: "Deploy a local stand-in MMO token (testnet/devnet validation only)."
+        required: true
+        type: boolean
+        default: false
+      mmo_token_address:
+        description: "External MMO token address (required when deploy_test_mmo=false)."
+        required: false
+        default: ""
+      solc_version:
+        description: "Solc version for production build/deploy"
+        required: true
+        default: "0.8.26"
+      run_mid_checks:
+        description: "Run middleware lint/test/build after address sync"
+        required: true
+        type: boolean
+        default: true
+
+jobs:
+  deploy:
+    name: Deploy contracts + sync middleware/frontend
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        working-directory: back
+    env:
+      CHAIN_ID: ${{ inputs.chain_id }}
+      SOLC_VERSION: ${{ inputs.solc_version }}
+      RPC_URL: ${{ secrets.CHAIN_RPC_URL }}
+      PRIVATE_KEY: ${{ secrets.DEPLOYER_PRIVATE_KEY }}
+      DEPLOY_TEST_MMO: ${{ inputs.deploy_test_mmo }}
+      MMO_TOKEN_ADDRESS: ${{ inputs.mmo_token_address }}
+      FRONT_CONTRACTS_PATH: front/contracts.latest.json
+      DEPLOYMENTS_JSON_PATH: deployments/contracts.latest.json
+      SKIP_MID_ENV_SYNC: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+          submodules: recursive
+
+      - name: Validate environment vs chain_id and ref
+        run: |
+          set -euo pipefail
+          ENVIRONMENT="${{ inputs.environment }}"
+          CONFIRM_TESTNET="${{ inputs.confirm_testnet }}"
+          CONFIRM_MAINNET="${{ inputs.confirm_mainnet }}"
+          CHAIN_ID="${{ inputs.chain_id }}"
+          DEPLOY_TEST_MMO="${{ inputs.deploy_test_mmo }}"
+          MMO_TOKEN_ADDRESS="${{ inputs.mmo_token_address }}"
+          REF="${GITHUB_REF_NAME}"
+          if [ "$ENVIRONMENT" = "testnet" ] && [ "$CONFIRM_TESTNET" != "true" ]; then
+            echo "Testnet safety gate: inputs.confirm_testnet must be true to deploy to testnet." >&2
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "mainnet" ] && [ "$CONFIRM_MAINNET" != "true" ]; then
+            echo "Mainnet safety gate: inputs.confirm_mainnet must be true to deploy to mainnet." >&2
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "testnet" ] && [ "$CHAIN_ID" != "10143" ]; then
+            echo "Invalid inputs: environment=testnet requires chain_id=10143 (got $CHAIN_ID)" >&2
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "mainnet" ] && [ "$CHAIN_ID" != "143" ]; then
+            echo "Invalid inputs: environment=mainnet requires chain_id=143 (got $CHAIN_ID)" >&2
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "testnet" ] && [ "$REF" != "testnet" ]; then
+            echo "Invalid ref: environment=testnet requires running on ref=testnet (got $REF)" >&2
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "mainnet" ] && [ "$REF" != "main" ]; then
+            echo "Invalid ref: environment=mainnet requires running on ref=main (got $REF)" >&2
+            exit 1
+          fi
+          if [ "$ENVIRONMENT" = "mainnet" ] && [ "$DEPLOY_TEST_MMO" = "true" ]; then
+            echo "Invalid inputs: mainnet deploy cannot use deploy_test_mmo=true" >&2
+            exit 1
+          fi
+          if [ "$DEPLOY_TEST_MMO" != "true" ] && [ -z "$MMO_TOKEN_ADDRESS" ]; then
+            echo "Invalid inputs: mmo_token_address is required when deploy_test_mmo=false" >&2
+            exit 1
+          fi
+          if [ "$DEPLOY_TEST_MMO" = "true" ] && [ -n "$MMO_TOKEN_ADDRESS" ]; then
+            echo "Notice: mmo_token_address provided but ignored because deploy_test_mmo=true"
+          fi
+
+      - name: Validate required secrets
+        working-directory: .
+        run: |
+          set -euo pipefail
+          if [ -z "${RPC_URL:-}" ]; then
+            echo "Missing secret: CHAIN_RPC_URL" >&2
+            exit 1
+          fi
+          if [ -z "${PRIVATE_KEY:-}" ]; then
+            echo "Missing secret: DEPLOYER_PRIVATE_KEY" >&2
+            exit 1
+          fi
+          if ! echo -n "${RPC_URL}" | grep -Eq '^https?://'; then
+            echo "Invalid CHAIN_RPC_URL (must be http(s) URL)." >&2
+            exit 1
+          fi
+          if ! echo -n "${PRIVATE_KEY}" | grep -Eq '^0x[0-9a-fA-F]{64}$'; then
+            echo "Invalid DEPLOYER_PRIVATE_KEY (must match 0x + 64 hex chars)." >&2
+            exit 1
+          fi
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Solc format check
+        run: forge fmt --check
+
+      - name: Solc production tests
+        run: forge test -vv --use "solc:${SOLC_VERSION}"
+
+      - name: Deploy with Solc + sync addresses
+        run: ./script/deploy-and-sync.sh
+
+      - name: Verify synced artifacts
+        working-directory: .
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, re, sys
+          chain_id = int(os.environ["CHAIN_ID"])
+          addr_re = re.compile(r"^0x[a-fA-F0-9]{40}$")
+          p = "deployments/contracts.latest.json"
+          d = json.load(open(p))
+          if int(d.get("chainId")) != chain_id:
+            raise SystemExit(f"{p}: chainId mismatch: expected {chain_id} got {d.get('chainId')}")
+          required_contracts = ["mmoToken","gameWorld","feeVault","items","tradeEscrow","rfqMarket"]
+          contracts = d.get("contracts", {})
+          for k in required_contracts:
+            v = contracts.get(k)
+            if not isinstance(v, str) or not addr_re.match(v):
+              raise SystemExit(f"{p}: invalid address for {k}: {v!r}")
+          distributor = contracts.get("distributor", None)
+          if distributor is not None and (not isinstance(distributor, str) or not addr_re.match(distributor)):
+            raise SystemExit(f"{p}: invalid address for distributor: {distributor!r}")
+          p2 = "front/contracts.latest.json"
+          d2 = json.load(open(p2))
+          if int(d2.get("chainId")) != chain_id:
+            raise SystemExit(f"{p2}: chainId mismatch: expected {chain_id} got {d2.get('chainId')}")
+          required = ["mmoToken","gameWorld","feeVault","items","tradeEscrow","rfqMarket"]
+          for k in required:
+            v = d2.get(k)
+            if not isinstance(v, str) or not addr_re.match(v):
+              raise SystemExit(f"{p2}: invalid address for {k}: {v!r}")
+          distributor2 = d2.get("distributor", None)
+          if distributor2 is not None and (not isinstance(distributor2, str) or not addr_re.match(distributor2)):
+            raise SystemExit(f"{p2}: invalid address for distributor: {distributor2!r}")
+          print("ok")
+          PY
+
+      - name: Commit synced address files
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          if git diff --quiet -- deployments/contracts.latest.json front/contracts.latest.json; then
+            echo "no address changes to commit"
+            exit 0
+          fi
+
+          git config user.name "chainmmo-deploy-bot"
+          git config user.email "chainmmo-deploy-bot@users.noreply.github.com"
+
+          git add deployments/contracts.latest.json front/contracts.latest.json
+          git commit -m "deploy: sync contracts (chainId=${CHAIN_ID})"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+
+      - name: Wait for testnet deploy to serve new contracts
+        if: ${{ inputs.environment == 'testnet' }}
+        working-directory: .
+        run: |
+          set -euo pipefail
+
+          expected_gameworld="$(python3 -c 'import json; d=json.load(open("deployments/contracts.latest.json")); print(d["contracts"]["gameWorld"])')"
+          deadline=$(( $(date +%s) + 1200 ))
+          while [ "$(date +%s)" -lt "$deadline" ]; do
+            got_gameworld="$(curl -fsS https://test.chainmmo.com/meta/contracts | python3 -c 'import json,sys; print(json.load(sys.stdin)["gameWorld"])' || true)"
+            if [ "$got_gameworld" = "$expected_gameworld" ]; then
+              WEB_URL=https://test.chainmmo.com \
+              API_URL=https://test.chainmmo.com \
+              DUAL_ORIGIN_SMOKE=true \
+              TESTNET_ORIGIN_URL=https://test.chainmmo.com \
+              MAINNET_ORIGIN_URL=https://chainmmo.com \
+              MAINNET_ALLOW_MAINTENANCE=true \
+              ./ops/smoke.sh
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "timed out waiting for https://test.chainmmo.com/meta/contracts to serve gameWorld=$expected_gameworld" >&2
+          exit 1
+
+      - name: Upload synced address artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: chainmmo-contract-addresses
+          path: |
+            deployments/contracts.latest.json
+            front/contracts.latest.json
+            back/broadcast/DeployChainMMO.s.sol/${{ inputs.chain_id }}/run-latest.json
+
+      - name: Setup Node
+        if: ${{ inputs.run_mid_checks }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: "mid/package-lock.json"
+
+      - name: Mid lint/test/build with synced addresses
+        if: ${{ inputs.run_mid_checks }}
+        working-directory: mid
+        run: |
+          npm ci
+          npm run lint
+          npm test
+          npm run build

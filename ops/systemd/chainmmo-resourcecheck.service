@@ -1,0 +1,15 @@
+[Unit]
+Description=ChainMMO Resource Check
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+User=chainmmo
+WorkingDirectory=/opt/chainmmo/repo/ops
+Environment=DISK_PATH=/
+Environment=DISK_MAX_PCT=85
+Environment=MEM_MIN_MB=512
+# Optional (recommended): set a webhook URL (Slack/Discord/etc) in a drop-in or env file.
+# Environment=ALERT_WEBHOOK_URL=https://...
+ExecStart=/opt/chainmmo/repo/ops/resourcecheck.sh

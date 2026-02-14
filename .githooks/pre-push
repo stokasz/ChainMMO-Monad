@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Safety rail: pushing changes under Coolify watch paths to protected branches can trigger a deploy.
+# GitHub branch protection is plan-gated for private repos, so we add a local guard.
+
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+
+remote_name="${1:-}"
+remote_url="${2:-}"
+remote_name="$remote_name"
+remote_url="$remote_url"
+
+watch_path_re='^(ops/|mid/|front/|deployments/contracts\\.latest\\.json$|front/contracts\\.latest\\.json$)'
+
+while read -r local_ref local_sha remote_ref remote_sha; do
+  branch="${remote_ref#refs/heads/}"
+
+  if [[ "$branch" != "main" && "$branch" != "testnet" ]]; then
+    continue
+  fi
+
+  # Deletions are not deploy-triggering in Coolify (and are dangerous); don't interfere here.
+  if [[ "$local_sha" =~ ^0+$ ]]; then
+    continue
+  fi
+
+  # New branches (remote sha all zeros) are not the common case for protected branches, but handle it anyway.
+  if [[ "$remote_sha" =~ ^0+$ ]]; then
+    changed_files="$(git diff --name-only "$local_sha" --)"
+  else
+    changed_files="$(git diff --name-only "$remote_sha" "$local_sha" --)"
+  fi
+
+  deploy_touched="$(echo "$changed_files" | grep -E "$watch_path_re" || true)"
+  if [[ -z "$deploy_touched" ]]; then
+    continue
+  fi
+
+  if [[ "$branch" = "main" && "${CHAINMMO_ALLOW_MAIN_PUSH:-}" != "1" ]]; then
+    echo "" >&2
+    echo "Refusing push to protected branch '$branch' with deploy-triggering changes." >&2
+    echo "Remote: $remote_name ($remote_url)" >&2
+    echo "" >&2
+    echo "Files that would trigger a Coolify deploy:" >&2
+    echo "$deploy_touched" >&2
+    echo "" >&2
+    echo "If this is intentional, rerun with: CHAINMMO_ALLOW_MAIN_PUSH=1 git push" >&2
+    exit 1
+  fi
+
+  if [[ "$branch" = "testnet" ]]; then
+    echo "" >&2
+    echo "Warning: pushing deploy-triggering changes to '$branch' will redeploy via Coolify." >&2
+    echo "Remote: $remote_name ($remote_url)" >&2
+    echo "" >&2
+    echo "Files that would trigger a Coolify deploy:" >&2
+    echo "$deploy_touched" >&2
+    echo "" >&2
+  fi
+done
+

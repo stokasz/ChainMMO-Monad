@@ -1,0 +1,11 @@
+{
+  "chainId": 143,
+  "syncedAt": "2026-02-12T17:46:38.710Z",
+  "mmoToken": "0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777",
+  "gameWorld": "0x3c6eF6a4272405A0C74cc137Ca7c681A1F58FB77",
+  "feeVault": "0xCf15f2ce39ece07A6997dFaF3D8BF24191F28cd1",
+  "items": "0x266ac4B2A21F3Bc4a78FC66e6bA43e898a62be8B",
+  "distributor": null,
+  "tradeEscrow": "0x1ad16E7469Bdae7094495B480721eb0cA2320EF7",
+  "rfqMarket": "0x766F70be76fADad08bf41C3EE4E7d46fA918d272"
+}

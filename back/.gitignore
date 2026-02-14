@@ -1,0 +1,12 @@
+# Compiler files
+cache/
+out/
+
+# Foundry broadcast logs (never commit)
+broadcast/
+
+# Docs
+docs/
+
+# Dotenv file
+.env

@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "chainmmo": {
+      "command": "bash",
+      "args": [
+        "-lc",
+        "cd mid && npm run mcp"
+      ],
+      "env": {
+        "AGENT_API_BASE_URL": "${CHAINMMO_AGENT_API_BASE_URL:-https://test.chainmmo.com}",
+        "AGENT_API_KEY": "${CHAINMMO_AGENT_API_KEY:-}",
+        "MCP_REQUEST_TIMEOUT_MS": "${CHAINMMO_MCP_REQUEST_TIMEOUT_MS:-15000}"
+      }
+    }
+  }
+}

@@ -1,0 +1,33 @@
+# Secrets and local environment state
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
+
+# Private keys / certificates
+*.pem
+*.key
+*.p12
+*.keystore
+
+# Dependency and build artifacts
+**/node_modules/
+**/dist/
+**/.cache/
+**/.vite/
+**/coverage/
+
+# Logs and temp files
+*.log
+.DS_Store
+
+# Foundry snapshots
+**/.gas-snapshot
+
+# Local tooling (never commit binaries)
+.tools/
+
+# Local/server backups (never commit)
+ops/backups/

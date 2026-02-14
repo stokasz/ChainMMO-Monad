@@ -1,0 +1,71 @@
+name: ChainMMO Ops Validate
+
+permissions: {}
+
+on:
+  push:
+    paths:
+      - "ops/**"
+      - "deployments/**"
+      - "front/contracts.latest.json"
+      - ".github/workflows/chainmmo-ops-validate.yml"
+  pull_request:
+    paths:
+      - "ops/**"
+      - "deployments/**"
+      - "front/contracts.latest.json"
+      - ".github/workflows/chainmmo-ops-validate.yml"
+  workflow_dispatch:
+
+jobs:
+  ops-validate:
+    name: Ops config validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      POSTGRES_PASSWORD: dummy
+      TLS_CONTACT_EMAIL: ci@example.com
+      CHAIN_RPC_URL: https://example.invalid
+      CHAIN_ID: "10143"
+      GAMEWORLD_ADDRESS: "0x0000000000000000000000000000000000000000"
+      FEEVAULT_ADDRESS: "0x0000000000000000000000000000000000000000"
+      ITEMS_ADDRESS: "0x0000000000000000000000000000000000000000"
+      MMO_ADDRESS: "0x0000000000000000000000000000000000000000"
+      TRADE_ESCROW_ADDRESS: "0x0000000000000000000000000000000000000000"
+      RFQ_MARKET_ADDRESS: "0x0000000000000000000000000000000000000000"
+      MMODISTRIBUTOR_ADDRESS: "0x0000000000000000000000000000000000000000"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Validate docker-compose (prod)
+        run: |
+          set -euo pipefail
+          docker compose -f ops/docker-compose.yml config >/dev/null
+
+      - name: Validate docker-compose (on-demand override)
+        run: |
+          set -euo pipefail
+          docker compose -f ops/docker-compose.yml -f ops/docker-compose.on-demand.yml config >/dev/null
+
+      - name: Validate docker-compose (Coolify internal)
+        run: |
+          set -euo pipefail
+          docker compose -f ops/docker-compose.coolify-internal.yml config >/dev/null
+
+      - name: Validate Caddyfile
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            -e TLS_CONTACT_EMAIL="${TLS_CONTACT_EMAIL}" \
+            -v "$PWD/ops/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            caddy:2 caddy validate --config /etc/caddy/Caddyfile
+
+      - name: Validate contract metadata JSON
+        run: |
+          set -euo pipefail
+          node -e "JSON.parse(require('fs').readFileSync('deployments/contracts.latest.json','utf8'))"
+          node -e "JSON.parse(require('fs').readFileSync('front/contracts.latest.json','utf8'))"
