@@ -33,7 +33,7 @@
 
 - **Zero scroll.** The entire application fits within `100vh × 100vw`. Panels have internal scroll only where explicitly noted.
 - **Data over decoration.** No hero banners, no illustrative imagery, no decorative separators. Every element is functional.
-- **Monospace-first.** Berkeley Mono everywhere. Addresses, numbers, labels, prose — all mono. This is a terminal.
+- **Monospace-first.** A system monospace stack everywhere (keeps the public repo redistributable). Addresses, numbers, labels, prose — all mono. This is a terminal.
 - **Glassy depth.** Panels are translucent with backdrop blur, creating layered depth without competing for attention.
 - **Live.** Data streams in real-time. Green flickers when something good happens. Red when something dies.
 
@@ -43,37 +43,13 @@
 
 ### Font Family
 
-**Berkeley Mono** — the single typeface for the entire application.
+System monospace stack by default (no bundled proprietary fonts).
 
-```
-Font files:    front/fonts/berkeley-mono-typeface/
-Static:        BerkeleyMono-Regular.woff2, BerkeleyMono-Bold.woff2
-               BerkeleyMono-Italic.woff2, BerkeleyMono-BoldItalic.woff2
-Variable:      BerkeleyMonoVariable-Regular.woff2 (weight axis)
-               BerkeleyMonoVariable-Italic.woff2 (weight axis)
-```
+The actual stack is defined in `front/src/index.css` (`--cm-text-mono`).
 
-Use the **variable fonts** in production (smaller total payload, smoother weight transitions). Load static Bold as fallback for browsers without variable font support.
+### Font Registration (Optional)
 
-### Font Registration
-
-```css
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/fonts/BerkeleyMonoVariable-Regular.woff2") format("woff2-variations");
-}
-
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: italic;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url("/fonts/BerkeleyMonoVariable-Italic.woff2") format("woff2-variations");
-}
-```
+No custom font is shipped by default. If you add a custom font, register it with `@font-face` in `front/src/index.css`.
 
 ### Type Scale
 

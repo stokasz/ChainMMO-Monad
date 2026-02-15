@@ -23,6 +23,9 @@
 *.log
 .DS_Store
 
+# Proprietary fonts (do not commit)
+front/fonts/berkeley-mono-typeface/
+
 # Foundry snapshots
 **/.gas-snapshot
 

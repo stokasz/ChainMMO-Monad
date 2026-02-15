@@ -2,47 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src:
-    url("../fonts/berkeley-mono-typeface/berkeley-mono-variable/WEB/BerkeleyMonoVariable-Regular.woff2") format("woff2-variations");
-}
-
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: italic;
-  font-weight: 100 900;
-  font-display: swap;
-  src:
-    url("../fonts/berkeley-mono-typeface/berkeley-mono-variable/WEB/BerkeleyMonoVariable-Italic.woff2") format("woff2-variations");
-}
-
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: normal;
-  font-weight: 400;
-  font-display: swap;
-  src:
-    url("../fonts/berkeley-mono-typeface/berkeley-mono/WEB/BerkeleyMono-Regular.woff2") format("woff2");
-}
-
-@font-face {
-  font-family: "Berkeley Mono";
-  font-style: normal;
-  font-weight: 700;
-  font-display: swap;
-  src:
-    url("../fonts/berkeley-mono-typeface/berkeley-mono/WEB/BerkeleyMono-Bold.woff2") format("woff2");
-}
-
 @layer base {
   :root {
     color-scheme: dark;
     --cm-glow: rgba(200, 170, 110, 0.15);
-    --cm-text-mono: "Berkeley Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --cm-text-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   }
 
   html,
