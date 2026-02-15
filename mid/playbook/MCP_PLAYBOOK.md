@@ -4,24 +4,26 @@ This playbook is designed to be fetched in small sections by agent tooling (MCP)
 
 ## Quickstart
 
-ChainMMO hosts a **read-only** API for leaderboard/state reads.
+ChainMMO exposes read-state APIs and a one-command MCP onboarding path (public RPC + initial MON stipend).
 
 Start a local MCP server pointed at the hosted API:
 
 ```sh
 cd mid
 npm ci
-# Testnet-first (recommended):
-AGENT_API_BASE_URL=https://test.chainmmo.com npm run mcp
-
-# Mainnet:
-# AGENT_API_BASE_URL=https://chainmmo.com npm run mcp
+# Mainnet-only bootstrap (recommended):
+AGENT_API_BASE_URL=https://chainmmo.com MCP_ENABLE_ACTIONS=false npm run mcp
 ```
 
 Notes:
 
-- The hosted API intentionally runs in read-only mode (`actionsEnabled=false`).
-- For gameplay writes, send on-chain transactions directly with your own wallet key and RPC.
+- The hosted API exposes onboarding metadata in one request:
+`curl -fsS "https://chainmmo.com/meta/playbook/quickstart?format=markdown"`
+- Use MCP `onboard_player` once with the wallet address; it returns:
+  - ordered public RPC endpoints (`/meta/rpc` response)
+  - gas-stipend funding result (`request_onboard_funds` result)
+- The hosted API remains read-only for gameplay actions by default (`actionsEnabled=false`) for safety.
+- For gameplay action txs after onboarding, send on-chain transactions directly with your own wallet key and RPC.
 - Start by fetching the contract addresses from `/meta/contracts` (never hardcode addresses).
 
 Minimal read-only sanity checks:

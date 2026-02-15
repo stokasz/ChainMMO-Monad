@@ -20,6 +20,8 @@ WEB_URL="${WEB_URL:-https://test.chainmmo.com}"
 API_URL="${API_URL:-https://test.chainmmo.com}"
 RPC_URL="${RPC_URL:-}"
 DUAL_ORIGIN_SMOKE="${DUAL_ORIGIN_SMOKE:-false}"
+SMOKE_REQUIRE_V2="${SMOKE_REQUIRE_V2:-false}"
+SMOKE_REQUIRE_GROK="${SMOKE_REQUIRE_GROK:-false}"
 TESTNET_ORIGIN_URL="${TESTNET_ORIGIN_URL:-https://test.chainmmo.com}"
 MAINNET_ORIGIN_URL="${MAINNET_ORIGIN_URL:-https://chainmmo.com}"
 TESTNET_EXPECT_CHAIN_ID="${TESTNET_EXPECT_CHAIN_ID:-10143}"
@@ -230,6 +232,80 @@ fi
 rm -f "$diag_tmp"
 
 curl -fsS "${API_URL}/leaderboard?mode=live&limit=1" >/dev/null
+
+feed_tmp="$(mktemp)"
+feed_status="$(curl -sS -o "$feed_tmp" -w "%{http_code}" "${API_URL}/feed/recent?limit=1" || true)"
+if [[ "$feed_status" == "200" ]]; then
+  python3 - "$feed_tmp" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1], "r", encoding="utf-8"))
+items=d.get("items")
+if not isinstance(items, list):
+    raise SystemExit("feed_recent_items_not_list")
+print("feed ok: items={}".format(len(items)))
+PY
+elif [[ "$feed_status" == "404" ]]; then
+  if [[ "$SMOKE_REQUIRE_V2" == "true" ]]; then
+    echo "feed failed: /feed/recent not deployed (status=404, SMOKE_REQUIRE_V2=true)" >&2
+    rm -f "$feed_tmp"
+    exit 1
+  fi
+  echo "feed skip: /feed/recent not deployed"
+else
+  echo "feed failed: status=$feed_status" >&2
+  rm -f "$feed_tmp"
+  exit 1
+fi
+rm -f "$feed_tmp"
+
+rfq_tmp="$(mktemp)"
+rfq_status="$(curl -sS -o "$rfq_tmp" -w "%{http_code}" "${API_URL}/market/rfqs?activeOnly=true&limit=1" || true)"
+if [[ "$rfq_status" == "200" ]]; then
+  python3 - "$rfq_tmp" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1], "r", encoding="utf-8"))
+items=d.get("items")
+if items is not None and not isinstance(items, list):
+    raise SystemExit("market_rfqs_items_not_list")
+print("rfqs ok")
+PY
+elif [[ "$rfq_status" == "404" ]]; then
+  if [[ "$SMOKE_REQUIRE_V2" == "true" ]]; then
+    echo "rfqs failed: /market/rfqs not deployed (status=404, SMOKE_REQUIRE_V2=true)" >&2
+    rm -f "$rfq_tmp"
+    exit 1
+  fi
+  echo "rfqs skip: /market/rfqs not deployed"
+else
+  echo "rfqs failed: status=$rfq_status" >&2
+  rm -f "$rfq_tmp"
+  exit 1
+fi
+rm -f "$rfq_tmp"
+
+grok_tmp="$(mktemp)"
+grok_status="$(curl -sS -o "$grok_tmp" -w "%{http_code}" "${API_URL}/grok/status" || true)"
+if [[ "$grok_status" == "200" ]]; then
+  python3 - "$grok_tmp" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1], "r", encoding="utf-8"))
+if "online" not in d:
+    raise SystemExit("grok_missing_online")
+print("grok ok: online={}".format(d.get("online")))
+PY
+elif [[ "$grok_status" == "404" || "$grok_status" == "503" ]]; then
+  if [[ "$SMOKE_REQUIRE_GROK" == "true" ]]; then
+    echo "grok failed: /grok/status unavailable (status=${grok_status}, SMOKE_REQUIRE_GROK=true)" >&2
+    rm -f "$grok_tmp"
+    exit 1
+  fi
+  echo "grok skip: /grok/status unavailable (status=${grok_status})"
+else
+  echo "grok failed: status=$grok_status" >&2
+  rm -f "$grok_tmp"
+  exit 1
+fi
+rm -f "$grok_tmp"
 
 rewards_tmp="$(mktemp)"
 rewards_status="$(curl -sS -o "$rewards_tmp" -w "%{http_code}" "${API_URL}/meta/rewards" || true)"

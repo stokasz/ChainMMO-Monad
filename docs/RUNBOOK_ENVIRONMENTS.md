@@ -18,40 +18,44 @@ This document defines repeatable command sequences for ChainMMO environments.
 
 Use this for deterministic local contract + middleware development.
 
-1. Start Anvil.
+1. Prepare a local devnet environment file.
 
 ```sh
-anvil --port 8555 --chain-id 31337 --code-size-limit 40000
+cd ops
+cp .env.devnet.local.example .env.devnet.local
 ```
 
-2. Deploy contracts and sync manifests.
+2. Set at least:
+
+- `POSTGRES_PASSWORD=...`
+- `CHAIN_ID=31337`
+- `PRIVATE_KEY=0x...` (required unless `SKIP_DEPLOY=true`)
+- `HOST_API_BIND=127.0.0.1` (optional)
+- `HOST_API_PORT=8787` (optional)
+- Optional: `RPC_URL=http://127.0.0.1:8555` and `CHAIN_RPC_URL=...` if you run anvil elsewhere.
+
+3. Start the full local devnet stack.
 
 ```sh
-cd back
-PRIVATE_KEY=0x... RPC_URL=http://127.0.0.1:8555 CHAIN_ID=31337 ./script/deploy-and-sync.sh
+cd ops
+./start-devnet-stack.sh --env-file .env.devnet.local
 ```
 
-3. Verify contract-side CI parity checks.
+This script:
 
-```sh
-cd back
-./script/solar-dev-check.sh
-forge fmt --check
-forge build --use solc:0.8.26
-python3 script/check-contract-sizes.py --preset monad
-forge test -vv --use solc:0.8.26
-```
+- Reuses existing RPC at `RPC_URL` or starts a local anvil on `${ANVIL_PORT:-8555}`;
+- Deploys contracts + syncs manifests unless `SKIP_DEPLOY=true`;
+- Starts postgres + middleware + v2 frontend;
+- Middleware automatically runs database migrations and chain indexer on startup.
+- Verifies middleware becomes healthy and that `/meta/contracts` returns the expected `chainId` before launching the frontend.
+- Validates contract manifest parity between `deployments/contracts.latest.json` and `front/contracts.latest.json`.
+- Points frontend API calls to `http://$HOST_API_BIND:$HOST_API_PORT` by default
+  (falls back to `http://127.0.0.1:8787`).
+- Optional startup health timeout can be tuned with:
+  - `API_READY_TIMEOUT_SECONDS` (default: `180`)
+  - `API_READY_POLL_SECONDS` (default: `2`)
 
-4. Start middleware and migrate DB.
-
-```sh
-cd mid
-npm ci
-npm run migrate
-npm run dev
-```
-
-5. Verify API surface and chain ID.
+4. Verify API surface and chain ID.
 
 ```sh
 curl -fsS http://127.0.0.1:8787/health
@@ -64,6 +68,18 @@ Pass criteria:
 - `/health.chainId` is `31337`.
 - `/meta/contracts.chainId` is `31337`.
 - Middleware starts without contract-manifest mismatch errors.
+
+Then open `http://127.0.0.1:5173` and confirm:
+
+- Dashboard renders with no fetch errors.
+- Feed/live panels show data for chain `31337`.
+
+5. Stop devnet stack.
+
+```sh
+cd ops
+./stop-devnet-stack.sh --env-file .env.devnet.local
+```
 
 ## Runbook B: Local Testnet Full Mode (`10143`, action tooling enabled)
 

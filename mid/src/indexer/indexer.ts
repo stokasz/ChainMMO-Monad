@@ -36,8 +36,14 @@ export class ChainIndexer {
 
   public async tick(): Promise<void> {
     const defaultBlock = BigInt(Math.max(this.env.CHAIN_START_BLOCK - 1, 0));
-    const cursor = await this.repository.getCursor(CURSOR_NAME, defaultBlock);
+    let cursor = await this.repository.getCursor(CURSOR_NAME, defaultBlock);
     const safeHead = await this.chain.getSafeHead();
+    const isLocalChain = this.env.CHAIN_ID === 31337;
+
+    if (isLocalChain && cursor.lastProcessedBlock > safeHead) {
+      await this.repository.resetForChainRestart(CURSOR_NAME, safeHead);
+      cursor = await this.repository.getCursor(CURSOR_NAME, defaultBlock);
+    }
 
     const maxBlocksPerTick = BigInt(this.env.INDEXER_MAX_BLOCKS_PER_TICK);
     const effectiveHead = minBigInt(safeHead, cursor.lastProcessedBlock + maxBlocksPerTick);

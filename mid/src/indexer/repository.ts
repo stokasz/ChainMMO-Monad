@@ -147,6 +147,35 @@ export class IndexerRepository {
     );
   }
 
+  public async resetForChainRestart(name: string, safeHeadBlock: bigint): Promise<void> {
+    const fallbackBlock = safeHeadBlock > 0n ? safeHeadBlock - 1n : 0n;
+
+    await this.db.withTransaction(async (client) => {
+      await client.query(
+        "TRUNCATE TABLE " +
+          "compact_event_delta, " +
+          "leaderboard_claim_state, " +
+          "leaderboard_epoch_state, " +
+          "trade_offer_state, " +
+          "rfq_state, " +
+          "character_upgrade_stone_state, " +
+          "character_equipment, " +
+          "character_lootbox_credits, " +
+          "character_level_state, " +
+          "characters, " +
+          "processed_logs, " +
+          "action_submissions, " +
+          "indexer_cursor " +
+          "RESTART IDENTITY"
+      );
+      await client.query(
+        `INSERT INTO indexer_cursor(name, last_processed_block, last_processed_log_index, updated_at)
+         VALUES ($1, $2, $3, NOW())`,
+        [name, fallbackBlock.toString(), -1]
+      );
+    });
+  }
+
   public async upsertLootboxCredits(params: {
     characterId: bigint;
     tier: number;

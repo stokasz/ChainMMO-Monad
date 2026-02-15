@@ -74,8 +74,13 @@ curl -fsS http://127.0.0.1:8787/meta/contracts
 
 Devnet requires an Anvil RPC + local contract deploy/sync.
 
-High-level steps:
+To reduce iteration time, use the one-command bootstrap:
 
-1) Start Anvil (`CHAIN_ID=31337`) and deploy/sync from `back/` (see `back/README.md`).
-2) Run the middleware on `CHAIN_ID=31337` in `MID_MODE=full`.
-3) Point Claude Code at your local API as in step 1.
+```sh
+cd ops
+cp .env.devnet.local.example .env.devnet.local
+# set POSTGRES_PASSWORD, CHAIN_ID=31337, PRIVATE_KEY (unless SKIP_DEPLOY=true)
+./start-devnet-stack.sh --env-file .env.devnet.local
+```
+
+The bootstrap waits for middleware health, validates `/meta/contracts` on chain `31337`, and checks contract-manifest parity between `deployments/contracts.latest.json` and `front/contracts.latest.json` before starting the frontend.

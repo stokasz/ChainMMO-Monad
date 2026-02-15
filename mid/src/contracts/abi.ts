@@ -35,6 +35,7 @@ export const gameWorldAbi = parseAbi([
   "function lootboxBoundCredits(uint256 characterId, uint32 tier, uint8 varianceMode) view returns (uint32)",
   "function upgradeStoneBalance(uint256 characterId) view returns (uint32)",
   "function equippedItemBySlot(uint256 characterId, uint8 slot) view returns (uint256 itemId)",
+  "function equippedLocationByItemId(uint256 itemId) view returns (uint256 packedLocation)",
   "function runVarianceMode(uint256 characterId) view returns (uint8)",
   "function equippedSlotCount(uint256 characterId) view returns (uint8)",
   "function requiredEquippedSlots(uint32 dungeonLevel) pure returns (uint8)",

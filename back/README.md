@@ -157,19 +157,13 @@ forge script script/DeployChainMMO.s.sol:DeployChainMMO \
 Deploy + automatically sync middleware/frontend contract metadata:
 
 ```sh
-PRIVATE_KEY=0x... \
-RPC_URL=http://127.0.0.1:8555 \
-CHAIN_ID=31337 \
-MMO_TOKEN_ADDRESS=0x... \
+# Set PRIVATE_KEY, RPC_URL, CHAIN_ID, and MMO_TOKEN_ADDRESS, then run:
 ./script/deploy-and-sync.sh
 ```
 
 ```sh
-# Or deploy-and-sync with a local stand-in MMO token:
-PRIVATE_KEY=0x... \
-RPC_URL=http://127.0.0.1:8555 \
-CHAIN_ID=31337 \
-DEPLOY_TEST_MMO=true \
+# Or deploy-and-sync with a local stand-in MMO token (dev-only).
+# Set PRIVATE_KEY, RPC_URL, CHAIN_ID, and DEPLOY_TEST_MMO=true, then run:
 ./script/deploy-and-sync.sh
 ```
 

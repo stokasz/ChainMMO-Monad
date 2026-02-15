@@ -25,16 +25,16 @@ describe("GET /meta/external", () => {
     }
   });
 
-  it("returns configured external token meta", async () => {
-    const payload = {
-      chainId: 143,
-      mmo: {
-        tokenAddress: "0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777",
-        poolAddress: "0xA7283d07812a02AFB7C09B60f8896bCEA3F90aCE",
-        source: "nad.fun",
-        url: "https://nad.fun/tokens/0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777"
-      }
-    };
+	  it("returns configured external token meta", async () => {
+	    const payload = {
+	      chainId: 143,
+	      mmo: {
+	        tokenAddress: "0x1111111111111111111111111111111111111111",
+	        poolAddress: "0x2222222222222222222222222222222222222222",
+	        source: "nad.fun",
+	        url: "https://nad.fun/tokens/0x1111111111111111111111111111111111111111"
+	      }
+	    };
 
     const readModel = {
       getExternalMeta: vi.fn(async () => payload)
@@ -58,4 +58,3 @@ describe("GET /meta/external", () => {
     }
   });
 });
-

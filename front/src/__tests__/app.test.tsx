@@ -6,6 +6,12 @@ import { getApiBase } from "../lib/url";
 vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
   const url = typeof input === "string" ? input : input.toString();
   const payload = (() => {
+    if (url.includes("/feed/recent")) {
+      return { items: [] };
+    }
+    if (url.includes("/market/rfqs")) {
+      return { nowUnix: 0, items: [] };
+    }
     if (url.includes("/meta/contracts")) {
       return {
         chainId: 10143,
@@ -17,14 +23,30 @@ vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
         rfqMarket: "0x0000000000000000000000000000000000000000"
       };
     }
-    if (url.includes("/leaderboard")) {
+    if (url.includes("/meta/external")) {
+      return { mmo: null };
+    }
+    if (url.includes("/leaderboard?")) {
       return { leaderboardUpdatedAtBlock: 1, indexingLagBlocks: 0, items: [] };
     }
     if (url.includes("/meta/diagnostics")) {
       return { indexer: { cursor: null, chainHeadBlock: 1, chainLagBlocks: 0 } };
     }
     if (url.includes("/meta/rewards")) {
-      return { avgFeesForPlayersWei: "0", latestFinalizedEpoch: null, currentEpoch: null };
+      return {
+        avgFeesForPlayersWei: "0",
+        latestFinalizedEpoch: null,
+        currentEpoch: { epochId: 0, feesForPlayersWei: "0", feesTotalWei: "0", headBlock: 1 }
+      };
+    }
+    if (url.includes("/grok/session")) {
+      return { sessionId: "session-test" };
+    }
+    if (url.includes("/grok/history")) {
+      return { items: [] };
+    }
+    if (url.includes("/grok/status")) {
+      return { online: true, queueDepth: 0, lastSeenAt: null };
     }
     return {};
   })();
@@ -38,25 +60,23 @@ vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
 
 describe("<App />", () => {
   it("renders the main sections", async () => {
-    render(<App />);
-    expect(
-      screen.getByText(/Are you good enough to pay for your inference\?/i),
-    ).toBeInTheDocument();
-
-    const cmdLabel = screen.getByText(/Give this command to your agent:/i);
-    const tagline = screen.getByText(
-      /Get to the top 10% of players, get \$MON from the bottom 90% of them\./i,
-    );
-    expect(
-      tagline.compareDocumentPosition(cmdLabel) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
-    ).toBeTruthy();
-
-    expect(screen.getByText(/Give this command to your agent:/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Copy command/i })).toBeInTheDocument();
-    expect(screen.getByText(/Rewards Pool/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/Epoch Ends/i).length).toBeGreaterThan(0);
-    expect(screen.getByTestId("epoch-ends-navbar")).toHaveTextContent(/^\d{2}:\d{2}:\d{2}$/);
+    await act(async () => {
+      render(<App />);
+    });
+    expect(screen.getByTestId("navbar")).toBeInTheDocument();
+    const navbar = screen.getByTestId("navbar");
+    expect(within(navbar).queryByText(/^Trade$/i)).toBeNull();
+    expect(within(navbar).queryByText(/^Onboard$/i)).toBeNull();
+    expect(screen.getByText(/LIVE FEED/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/LEADERBOARD/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/EPOCH/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/REWARDS/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/RFQ MARKET/i)).toBeInTheDocument();
+    expect(screen.getByText(/ECONOMY/i)).toBeInTheDocument();
+    expect(screen.getByText(/MY AGENT/i)).toBeInTheDocument();
+    expect(screen.getByText(/Give this command to your AI agent to start playing/i)).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /^Copy$/i }).length).toBeGreaterThan(0);
+    expect(screen.getByLabelText(/dark fantasy banner/i)).toBeInTheDocument();
 
     const manifestEl = document.getElementById("chainmmo-agent-manifest");
     expect(manifestEl).not.toBeNull();
@@ -74,28 +94,14 @@ describe("<App />", () => {
       `${getApiBase()}/meta/playbook/quickstart?format=markdown`
     );
 
-    const expectedAnchors = [
-      "quickstart",
-      "leaderboard",
-      "economy",
-      "onboarding",
-      "benchmark",
-      "docs",
-      "lore"
-    ];
+    const expectedAnchors = ["feed", "leaderboard", "agent", "market", "docs", "about"];
     expect(Array.isArray(manifest?.anchors)).toBe(true);
     for (const id of expectedAnchors) {
       expect(manifest.anchors).toContain(id);
-      expect(document.getElementById(id)).not.toBeNull();
     }
 
-    expect(screen.getByText(/^Leaderboard:?$/i)).toBeInTheDocument();
-    expect(screen.getByText(/Agent Onboarding/i)).toBeInTheDocument();
-    expect(screen.getByText(/Benchmark Framing/i)).toBeInTheDocument();
-    expect(screen.getByText(/Economy by Level Band/i)).toBeInTheDocument();
-
-    await waitFor(() => expect(screen.getByText(/updated block:/i)).toBeInTheDocument());
-    expect(screen.getByText(/No leaderboard data yet\./i)).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText(/updated block/i)).toBeInTheDocument());
+    expect(screen.getByText("Leaderboard not loaded.")).toBeInTheDocument();
   });
 
   it("ticks the epoch countdown every second", async () => {
@@ -104,17 +110,20 @@ describe("<App />", () => {
     const nowSpy = vi.spyOn(Date, "now").mockImplementation(() => now);
 
     try {
-      render(<App />);
-      const valueEl = screen.getByTestId("epoch-ends-navbar");
+      await act(async () => {
+        render(<App />);
+      });
+      const footer = screen.getByRole("contentinfo");
+      const valueEl = within(footer).getByText(/Epoch \d{2}:\d{2}:\d{2}/);
       const t0 = valueEl.textContent;
 
       await act(async () => {
         now += 1000;
-        // Flush the timer-driven state update.
         await vi.advanceTimersByTimeAsync(1000);
       });
 
-      expect(valueEl.textContent).not.toEqual(t0);
+      const t1 = within(footer).getByText(/Epoch \d{2}:\d{2}:\d{2}/).textContent;
+      expect(t1).not.toEqual(t0);
     } finally {
       nowSpy.mockRestore();
       vi.useRealTimers();

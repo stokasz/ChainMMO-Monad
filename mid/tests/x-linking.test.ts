@@ -162,5 +162,62 @@ describe("X linking (wallet <-> X)", () => {
       await app.close();
     }
   });
-});
 
+  it("GET /auth/x/callback exchanges the verifier and redirects back to the web origin with link token", async () => {
+    const db = {
+      query: vi.fn(async (sql: string) => {
+        if (sql.includes("FROM x_oauth_request_tokens")) {
+          return [
+            {
+              oauth_token_secret: "rts_1",
+              address: "0x1111111111111111111111111111111111111111",
+              web_origin: "http://localhost:5173"
+            }
+          ];
+        }
+        return [];
+      })
+    } as any;
+
+    const xOAuthClient = {
+      accessToken: vi.fn(async () => ({ userId: "123", screenName: "alice" }))
+    };
+
+    const app = await buildApiServer({
+      env: {
+        X_CONSUMER_KEY: "ck",
+        X_CONSUMER_SECRET: "cs",
+        X_OAUTH_CALLBACK_URL: "http://127.0.0.1:8787/auth/x/callback",
+        X_WEB_ORIGIN: "http://localhost:5173"
+      } as any,
+      metrics: new ActionMetrics(),
+      readModel: {} as any,
+      db,
+      xOAuthClient: xOAuthClient as any
+    });
+
+    try {
+      const response = await app.inject({
+        method: "GET",
+        url: "/auth/x/callback?oauth_token=rt_1&oauth_verifier=ver_1"
+      });
+
+      expect(response.statusCode).toBe(302);
+      expect(xOAuthClient.accessToken).toHaveBeenCalledWith({
+        oauthToken: "rt_1",
+        oauthTokenSecret: "rts_1",
+        oauthVerifier: "ver_1"
+      });
+
+      const location = response.headers.location;
+      expect(typeof location).toBe("string");
+      const redirectUrl = new URL(location as string);
+      expect(redirectUrl.origin).toBe("http://localhost:5173");
+      expect(redirectUrl.searchParams.get("api")).toBe("http://127.0.0.1:8787");
+      const linkToken = redirectUrl.searchParams.get("xlink");
+      expect(linkToken).toMatch(/^[0-9a-f-]{36}$/i);
+    } finally {
+      await app.close();
+    }
+  });
+});

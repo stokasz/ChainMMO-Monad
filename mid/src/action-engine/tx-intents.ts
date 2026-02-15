@@ -380,6 +380,19 @@ export class ActionTxIntentBuilder {
       if (tier > bestLevel + 1) {
         continue;
       }
+
+      // Items remain owned by the wallet even while equipped. Filter out tokens that are already equipped
+      // on some other character to avoid ItemAlreadyEquipped() reverts when multiple characters share a wallet.
+      // packedLocation is (characterId << 8) | slotIndex; characterId==0 means not equipped.
+      const packedLocation = await this.chain.readGameWorld<bigint>("equippedLocationByItemId", [itemId]);
+      if (packedLocation !== 0n) {
+        const equippedCharacterId = packedLocation >> 8n;
+        const equippedSlotIndex = Number(packedLocation & 0xffn);
+        if (equippedCharacterId !== BigInt(characterId) || equippedSlotIndex !== slot) {
+          continue;
+        }
+      }
+
       const [hp, mana, def, atkM, atkR] = await this.chain.readItems<readonly [number, number, number, number, number]>(
         "deriveBonuses",
         [itemId]

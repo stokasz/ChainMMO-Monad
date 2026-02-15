@@ -13,37 +13,28 @@
   }
 }
 
-(chainmmo_mainnet_maintenance_json) {
-  header Content-Type application/json
-  respond "{\"ok\":false,\"maintenance\":true,\"message\":\"ChainMMO mainnet is not live yet. This origin is reserved for mainnet (chainId=143).\"}" 503
-}
-
 # Testnet origins: only testnet backend data.
 test.chainmmo.com, api.test.chainmmo.com {
   import chainmmo_security
-  @coolify_github_manual path /webhooks/source/github/events/manual
-  handle @coolify_github_manual {
+  @coolify_github_webhook {
+    path /webhooks/source/github/events/manual /webhooks/source/github/events
+  }
+  handle @coolify_github_webhook {
     reverse_proxy coolify:8080
   }
-  reverse_proxy mid:8787
+  reverse_proxy mid-testnet:8787
 }
 
-# Main origin: explicit maintenance until mainnet backend is live.
+# Main origin: mainnet backend.
 chainmmo.com, api.chainmmo.com {
   import chainmmo_security
-  @coolify_github_manual path /webhooks/source/github/events/manual
-  handle @coolify_github_manual {
+  @coolify_github_webhook {
+    path /webhooks/source/github/events/manual /webhooks/source/github/events
+  }
+  handle @coolify_github_webhook {
     reverse_proxy coolify:8080
   }
-
-  @maintenance_json path /health /meta/contracts /meta/external /meta/diagnostics /meta/rewards /leaderboard* /contracts.latest.json
-  handle @maintenance_json {
-    import chainmmo_mainnet_maintenance_json
-  }
-
-  handle {
-    respond "ChainMMO mainnet is not live yet. Use https://test.chainmmo.com for testnet." 503
-  }
+  reverse_proxy mid-mainnet:8787
 }
 
 www.chainmmo.com {

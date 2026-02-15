@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
-import type { Hex } from "viem";
+import { decodeFunctionData, type Hex } from "viem";
 import { ActionTxIntentBuilder } from "../src/action-engine/tx-intents.js";
+import { gameWorldAbi } from "../src/contracts/abi.js";
 
 const ACTOR = "0x1111111111111111111111111111111111111111" as Hex;
 
@@ -96,5 +97,104 @@ describe("tx intent builder", () => {
     });
     expect(typeof plan.metadata?.commitSecret).toBe("string");
     expect(typeof plan.metadata?.commitNonce).toBe("string");
+  });
+
+  it("equip_best excludes items equipped on other characters for shared-wallet safety", async () => {
+    const chain = baseChain();
+
+    chain.readGameWorld = vi.fn(async (functionName: string, args?: unknown[]) => {
+      if (functionName === "ownerOfCharacter") return ACTOR;
+      if (functionName === "characterBestLevel") return 1;
+      if (functionName === "equippedLocationByItemId") {
+        const itemId = (args as [bigint])[0];
+        if (itemId === 100n) return (2n << 8n) | 1n; // equipped on another character, same slot
+        if (itemId === 101n) return 0n;
+        throw new Error(`unexpected_itemId:${itemId.toString()}`);
+      }
+      throw new Error(`unexpected_read_gameworld:${functionName}`);
+    });
+
+    chain.readItems = vi.fn(async (functionName: string, args?: unknown[]) => {
+      if (functionName === "balanceOf") return 2n;
+      if (functionName === "tokenOfOwnerByIndex") {
+        const index = (args as [Hex, bigint])[1];
+        return index === 0n ? 100n : 101n;
+      }
+      if (functionName === "decode") {
+        return [1, 2, 0n]; // slot=1, tier=2, seed
+      }
+      if (functionName === "deriveBonuses") {
+        const itemId = (args as [bigint])[0];
+        if (itemId === 100n) return [0, 0, 0, 10, 0]; // would be best, but is equipped elsewhere
+        if (itemId === 101n) return [0, 0, 0, 2, 0];
+      }
+      throw new Error(`unexpected_read_items:${functionName}`);
+    });
+
+    const builder = new ActionTxIntentBuilder(chain, 10143);
+    const plan = await builder.build({
+      actor: ACTOR,
+      action: {
+        type: "equip_best",
+        characterId: 3,
+        objective: "dps"
+      }
+    });
+
+    expect(plan.intents).toHaveLength(1);
+    expect(plan.intents[0].label).toBe("equip_items");
+
+    const decoded = decodeFunctionData({ abi: gameWorldAbi, data: plan.intents[0].data });
+    expect(decoded.functionName).toBe("equipItems");
+    const [cid, itemIds] = decoded.args as unknown as [bigint, bigint[]];
+    expect(cid).toBe(3n);
+    expect(itemIds).toEqual([101n]);
+  });
+
+  it("equip_best allows items already equipped on the target character (idempotent equip)", async () => {
+    const chain = baseChain();
+
+    chain.readGameWorld = vi.fn(async (functionName: string, args?: unknown[]) => {
+      if (functionName === "ownerOfCharacter") return ACTOR;
+      if (functionName === "characterBestLevel") return 1;
+      if (functionName === "equippedLocationByItemId") {
+        const itemId = (args as [bigint])[0];
+        if (itemId === 200n) return (3n << 8n) | 1n; // already equipped on target character, correct slot
+        if (itemId === 201n) return 0n;
+        throw new Error(`unexpected_itemId:${itemId.toString()}`);
+      }
+      throw new Error(`unexpected_read_gameworld:${functionName}`);
+    });
+
+    chain.readItems = vi.fn(async (functionName: string, args?: unknown[]) => {
+      if (functionName === "balanceOf") return 2n;
+      if (functionName === "tokenOfOwnerByIndex") {
+        const index = (args as [Hex, bigint])[1];
+        return index === 0n ? 200n : 201n;
+      }
+      if (functionName === "decode") {
+        return [1, 2, 0n];
+      }
+      if (functionName === "deriveBonuses") {
+        const itemId = (args as [bigint])[0];
+        if (itemId === 200n) return [0, 0, 0, 10, 0];
+        if (itemId === 201n) return [0, 0, 0, 2, 0];
+      }
+      throw new Error(`unexpected_read_items:${functionName}`);
+    });
+
+    const builder = new ActionTxIntentBuilder(chain, 10143);
+    const plan = await builder.build({
+      actor: ACTOR,
+      action: {
+        type: "equip_best",
+        characterId: 3,
+        objective: "dps"
+      }
+    });
+
+    const decoded = decodeFunctionData({ abi: gameWorldAbi, data: plan.intents[0].data });
+    const [, itemIds] = decoded.args as unknown as [bigint, bigint[]];
+    expect(itemIds).toEqual([200n]);
   });
 });

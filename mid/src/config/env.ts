@@ -39,6 +39,7 @@ const baseEnvSchema = z.object({
     (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
     z.string().optional()
   ),
+  CHAIN_EXPLORER_BASE_URL: z.string().url().default("https://monadvision.com"),
 
   GAMEWORLD_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).default(ZERO_ADDRESS),
   FEEVAULT_ADDRESS: z.string().regex(/^0x[a-fA-F0-9]{40}$/).default(ZERO_ADDRESS),
@@ -79,6 +80,67 @@ const baseEnvSchema = z.object({
   MCP_STIPEND_PER_ADDRESS_LIMIT_PER_WINDOW: z.coerce.number().int().min(1).max(1000).default(2),
   MCP_STIPEND_GLOBAL_PER_HOUR_LIMIT: z.coerce.number().int().min(1).max(10000).default(60),
 
+  GROK_ARENA_ENABLED: booleanFromEnv.default(false),
+  GROK_OPENCLAW_GATEWAY_URL: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().url().optional()
+  ),
+  GROK_OPENCLAW_GATEWAY_TOKEN: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_ID: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).max(64).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_DISPLAY_NAME: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).max(64).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_MODE: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).max(24).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_PLATFORM: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).max(32).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_VERSION: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).max(64).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_LOCALE: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().min(1).max(32).optional()
+  ),
+  GROK_OPENCLAW_CLIENT_SCOPES: z.preprocess(
+    (v) => {
+      if (typeof v !== "string") return undefined;
+      const trimmed = v.trim();
+      if (!trimmed) return undefined;
+      const items = trimmed.split(",").map((scope) => scope.trim()).filter(Boolean);
+      return items.length ? items : undefined;
+    },
+    z.array(z.string().min(1)).optional()
+  ),
+  GROK_OPENCLAW_MAX_TOKENS: z.coerce.number().int().min(64).max(32000).default(1024),
+  GROK_OPENCLAW_MAX_COMPLETION_TOKENS: z.coerce.number().int().min(64).max(32000).default(1024),
+  GROK_OPENCLAW_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(15_000),
+  GROK_GATEWAY_READY_TIMEOUT_MS: z.coerce.number().int().min(1000).max(120_000).default(5_000),
+  GROK_AGENT_ID: z.string().min(1).default("chainmmo"),
+  GROK_AGENT_ADDRESS: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional()
+  ),
+  GROK_PROMPT_MAX_CHARS: z.coerce.number().int().min(1).max(4000).default(600),
+  GROK_HISTORY_LIMIT: z.coerce.number().int().min(1).max(200).default(10),
+  GROK_RATE_LIMIT_COOLDOWN_SECONDS: z.coerce.number().int().min(1).max(3600).default(10),
+  GROK_RATE_LIMIT_PER_HOUR: z.coerce.number().int().min(1).max(1000).default(20),
+  GROK_IP_HASH_SALT: z.preprocess(
+    (v) => (typeof v === "string" && v.trim().length === 0 ? undefined : v),
+    z.string().optional()
+  ),
+
   INDEXER_POLL_MS: z.coerce.number().int().positive().default(1500),
   INDEXER_BLOCK_CHUNK: z.coerce.number().int().positive().max(2000).default(200),
   INDEXER_MAX_BLOCKS_PER_TICK: z.coerce.number().int().positive().max(200_000).default(2000),
@@ -91,7 +153,7 @@ const baseEnvSchema = z.object({
   ACTION_REQUIRE_PREFLIGHT_SUCCESS: booleanFromEnv.default(false),
   ACTION_ENABLE_DEPLOYER_CLAIMS: booleanFromEnv.default(false),
 
-  X_PROFILE_URL: z.string().url().default("https://x.com/chainmmo"),
+  X_PROFILE_URL: z.string().url().default("https://x.com/stokasz"),
 
   // X OAuth 1.0a (Sign in with X) for linking wallet addresses to X identities.
   // Optional: when unset, /auth/x/* endpoints return 503 and the app runs normally.
@@ -120,6 +182,49 @@ const envSchema = baseEnvSchema.superRefine((env, ctx) => {
       path: ["SIGNER_PRIVATE_KEY"],
       message: "SIGNER_PRIVATE_KEY is required unless MID_MODE=read-only"
     });
+  }
+
+  if (env.GROK_ARENA_ENABLED) {
+    if (!env.GROK_OPENCLAW_GATEWAY_URL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["GROK_OPENCLAW_GATEWAY_URL"],
+        message: "GROK_OPENCLAW_GATEWAY_URL is required when GROK_ARENA_ENABLED=true"
+      });
+    }
+    if (!env.GROK_OPENCLAW_GATEWAY_TOKEN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["GROK_OPENCLAW_GATEWAY_TOKEN"],
+        message: "GROK_OPENCLAW_GATEWAY_TOKEN is required when GROK_ARENA_ENABLED=true"
+      });
+    }
+
+    // Production safety rail: devnet can point at a local gateway, but non-devnet deployments should not.
+    // In containerized deployments, localhost almost never refers to the intended gateway and causes a silent outage.
+    if (env.GROK_OPENCLAW_GATEWAY_URL && env.CHAIN_ID !== 31337) {
+      try {
+        const parsed = new URL(env.GROK_OPENCLAW_GATEWAY_URL);
+        const host = parsed.hostname.toLowerCase();
+        const localHosts = new Set([
+          "localhost",
+          "127.0.0.1",
+          "0.0.0.0",
+          "::1",
+          "host.docker.internal"
+        ]);
+        if (localHosts.has(host)) {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["GROK_OPENCLAW_GATEWAY_URL"],
+            message:
+              "GROK_OPENCLAW_GATEWAY_URL must not point at localhost/host.docker.internal for non-devnet chains; use a server-hosted OpenClaw gateway reachable from the deployed middleware"
+          });
+        }
+      } catch {
+        // If URL parsing fails, zod's url() validation will already reject it.
+      }
+    }
   }
 });
 

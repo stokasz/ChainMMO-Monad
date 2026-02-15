@@ -329,6 +329,15 @@ export class ActionEngine {
         continue;
       }
 
+      const packedLocation = await this.chain.readGameWorld<bigint>("equippedLocationByItemId", [itemId]);
+      if (packedLocation !== 0n) {
+        const equippedCharacterId = packedLocation >> 8n;
+        const equippedSlotIndex = Number(packedLocation & 0xffn);
+        if (equippedCharacterId !== BigInt(characterId) || equippedSlotIndex !== slot) {
+          continue;
+        }
+      }
+
       const [hp, mana, def, atkM, atkR] = await this.chain.readItems<readonly [number, number, number, number, number]>(
         "deriveBonuses",
         [itemId]
@@ -632,13 +641,18 @@ export class ActionEngine {
       receipts.push(approveReceipt);
     }
 
+    const createFee = await this.chain.readRfq<bigint>("createFee", []);
+    const expiry = action.expiry && action.expiry > 0
+      ? action.expiry
+      : Math.floor(Date.now() / 1000) + 3600;
+
     const txHash = await this.chain.writeRfq("createRFQ", [
       action.slot,
       action.minTier,
       BigInt(action.acceptableSetMask),
       offeredAmount,
-      action.expiry ?? 0
-    ]);
+      expiry
+    ], { value: createFee });
     const receipt = await this.chain.waitForReceipt(txHash);
     txHashes.push(txHash);
     receipts.push(receipt);

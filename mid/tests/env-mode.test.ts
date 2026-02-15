@@ -177,4 +177,77 @@ describe("env modes", () => {
     expect(env.INDEXER_RATE_LIMIT_BACKOFF_MS).toBe(750);
     expect(env.INDEXER_RATE_LIMIT_RETRY_MAX).toBe(6);
   });
+
+  it("parses grok arena openclaw client overrides", () => {
+    const env = withEnv(
+      {
+        ...baseRequired,
+        MID_MODE: "read-only",
+        GROK_OPENCLAW_CLIENT_ID: "chainmmo-devnet",
+        GROK_OPENCLAW_CLIENT_DISPLAY_NAME: "ChainMMO Devnet",
+        GROK_OPENCLAW_CLIENT_MODE: "backend",
+        GROK_OPENCLAW_CLIENT_PLATFORM: "linux",
+        GROK_OPENCLAW_CLIENT_VERSION: "1.2.3",
+        GROK_OPENCLAW_CLIENT_LOCALE: "en-CA",
+        GROK_OPENCLAW_CLIENT_SCOPES: "operator.write,operator.admin,operator.approvals"
+      },
+      () => loadEnv()
+    );
+    expect(env.GROK_OPENCLAW_CLIENT_ID).toBe("chainmmo-devnet");
+    expect(env.GROK_OPENCLAW_CLIENT_DISPLAY_NAME).toBe("ChainMMO Devnet");
+    expect(env.GROK_OPENCLAW_CLIENT_MODE).toBe("backend");
+    expect(env.GROK_OPENCLAW_CLIENT_PLATFORM).toBe("linux");
+    expect(env.GROK_OPENCLAW_CLIENT_VERSION).toBe("1.2.3");
+    expect(env.GROK_OPENCLAW_CLIENT_LOCALE).toBe("en-CA");
+    expect(env.GROK_OPENCLAW_CLIENT_SCOPES).toEqual([
+      "operator.write",
+      "operator.admin",
+      "operator.approvals"
+    ]);
+  });
+
+  it("parses grok openclaw token caps", () => {
+    const env = withEnv(
+      {
+        ...baseRequired,
+        MID_MODE: "read-only",
+        GROK_OPENCLAW_MAX_TOKENS: "1400",
+        GROK_OPENCLAW_MAX_COMPLETION_TOKENS: "1300"
+      },
+      () => loadEnv()
+    );
+
+    expect(env.GROK_OPENCLAW_MAX_TOKENS).toBe(1400);
+    expect(env.GROK_OPENCLAW_MAX_COMPLETION_TOKENS).toBe(1300);
+  });
+
+  it("allows local grok gateway URL on devnet chain", () => {
+    const env = withEnv(
+      {
+        ...baseRequired,
+        MID_MODE: "read-only",
+        GROK_ARENA_ENABLED: "true",
+        GROK_OPENCLAW_GATEWAY_URL: "ws://host.docker.internal:8788",
+        GROK_OPENCLAW_GATEWAY_TOKEN: "t-1"
+      },
+      () => loadEnv()
+    );
+    expect(env.GROK_ARENA_ENABLED).toBe(true);
+  });
+
+  it("rejects local grok gateway URL on non-devnet chain", () => {
+    expect(() =>
+      withEnv(
+        {
+          ...baseRequired,
+          CHAIN_ID: "143",
+          MID_MODE: "read-only",
+          GROK_ARENA_ENABLED: "true",
+          GROK_OPENCLAW_GATEWAY_URL: "ws://127.0.0.1:8788",
+          GROK_OPENCLAW_GATEWAY_TOKEN: "t-1"
+        },
+        () => loadEnv()
+      )
+    ).toThrow();
+  });
 });

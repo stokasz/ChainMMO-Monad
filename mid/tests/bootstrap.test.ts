@@ -61,19 +61,19 @@ describe("agent bootstrap", () => {
   it("includes external token info when configured for the chain", async () => {
     const dir = await mkdtemp(path.join(tmpdir(), "chainmmo-external-"));
     const filePath = path.join(dir, "external.tokens.latest.json");
-    await writeFile(
-      filePath,
-      JSON.stringify({
-        chainId: 143,
-        mmo: {
-          tokenAddress: "0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777",
-          poolAddress: "0xA7283d07812a02AFB7C09B60f8896bCEA3F90aCE",
-          source: "nad.fun",
-          url: "https://nad.fun/tokens/0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777"
-        }
-      }),
-      "utf8"
-    );
+	    await writeFile(
+	      filePath,
+	      JSON.stringify({
+	        chainId: 143,
+	        mmo: {
+	          tokenAddress: "0x1111111111111111111111111111111111111111",
+	          poolAddress: "0x2222222222222222222222222222222222222222",
+	          source: "nad.fun",
+	          url: "https://nad.fun/tokens/0x1111111111111111111111111111111111111111"
+	        }
+	      }),
+	      "utf8"
+	    );
 
     const chain = {
       readGameWorld: vi.fn(async (functionName: string) => {
@@ -95,15 +95,15 @@ describe("agent bootstrap", () => {
       {} as any,
       chain
     );
-    const bootstrap = await readModel.getAgentBootstrap();
-    expect(bootstrap.chainId).toBe(143);
-    expect((bootstrap as any).external).toEqual({
-      mmo: {
-        tokenAddress: "0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777",
-        poolAddress: "0xA7283d07812a02AFB7C09B60f8896bCEA3F90aCE",
-        source: "nad.fun",
-        url: "https://nad.fun/tokens/0xF383a61f1a68ee4A77a1b7F57D8f2d948B5f7777"
-      }
-    });
-  });
+	    const bootstrap = await readModel.getAgentBootstrap();
+	    expect(bootstrap.chainId).toBe(143);
+	    expect((bootstrap as any).external).toEqual({
+	      mmo: {
+	        tokenAddress: "0x1111111111111111111111111111111111111111",
+	        poolAddress: "0x2222222222222222222222222222222222222222",
+	        source: "nad.fun",
+	        url: "https://nad.fun/tokens/0x1111111111111111111111111111111111111111"
+	      }
+	    });
+	  });
 });

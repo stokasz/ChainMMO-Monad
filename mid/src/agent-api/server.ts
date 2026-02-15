@@ -26,6 +26,7 @@ import { normalizeError } from "../action-engine/errors.js";
 import type { Database } from "../storage/db.js";
 import { ChainAdapter } from "../chain-adapter/client.js";
 import { createXOauth1Client, type XOAuth1Client } from "../auth/x-oauth1.js";
+import type { GrokArena } from "../grok/arena.js";
 
 export interface ApiDependencies {
   env: Env;
@@ -40,6 +41,7 @@ export interface ApiDependencies {
   actionTxIntentBuilder?: ActionTxIntentBuilder;
   actionValidMenu?: ActionValidMenu;
   xOAuthClient?: XOAuth1Client;
+  grokArena?: GrokArena;
 }
 
 const WRITE_PATH_GAS_FLOOR = 250_000n;
@@ -83,6 +85,20 @@ export async function buildApiServer(deps: ApiDependencies) {
       return fromDist;
     }
     return path.join(frontPublicRoot, name);
+  };
+
+  const resolveExistingPath = async (paths: string[]) => {
+    for (const candidate of paths) {
+      try {
+        await fs.stat(candidate);
+        return candidate;
+      } catch (error: any) {
+        if (error?.code !== "ENOENT") {
+          throw error;
+        }
+      }
+    }
+    return null;
   };
 
   const playbookPath = deps.env.PLAYBOOK_PATH ?? resolveDefaultPlaybookPath();
@@ -405,6 +421,19 @@ export async function buildApiServer(deps: ApiDependencies) {
     await sendStatic(reply, abs, guessContentType(abs), null);
   });
 
+  app.get("/logo.png", async (_, reply) => {
+    const logoPath = await resolveExistingPath([
+      path.join(frontDistRoot, "logo.png"),
+      path.join(frontDistRoot, "assets", "logo.png"),
+      path.join(frontRoot, "assets", "logo.png"),
+      path.join(frontPublicRoot, "logo.png")
+    ]);
+    if (!logoPath) {
+      return reply.status(404).send({ error: "not_found" });
+    }
+    return sendStatic(reply, logoPath, "image/png", null);
+  });
+
   app.get("/robots.txt", async (_, reply) => sendStatic(reply, resolveWebAsset("robots.txt"), "text/plain; charset=utf-8"));
   app.get("/sitemap.xml", async (_, reply) => sendStatic(reply, resolveWebAsset("sitemap.xml"), "application/xml; charset=utf-8"));
   app.get("/favicon.ico", async (_, reply) => sendStatic(reply, resolveWebAsset("favicon.ico"), "image/x-icon", null));
@@ -645,6 +674,28 @@ export async function buildApiServer(deps: ApiDependencies) {
       state,
       deltas
     };
+  });
+
+  app.get("/feed/recent", async (request, reply) => {
+    const query = request.query as {
+      limit?: string;
+      sinceBlock?: string;
+    };
+
+    const limitRaw = query.limit !== undefined ? Number(query.limit) : undefined;
+    if (limitRaw !== undefined && (!Number.isFinite(limitRaw) || !Number.isInteger(limitRaw) || limitRaw <= 0 || limitRaw > 100)) {
+      return reply.status(400).send({ error: "invalid_limit" });
+    }
+
+    const sinceBlockRaw = query.sinceBlock !== undefined ? Number(query.sinceBlock) : undefined;
+    if (
+      sinceBlockRaw !== undefined &&
+      (!Number.isFinite(sinceBlockRaw) || !Number.isInteger(sinceBlockRaw) || sinceBlockRaw < 0)
+    ) {
+      return reply.status(400).send({ error: "invalid_sinceBlock" });
+    }
+
+    return deps.readModel.getRecentStateDeltas(limitRaw ?? 50, sinceBlockRaw);
   });
 
   app.get("/agent/bootstrap", async () => deps.readModel.getAgentBootstrap());
@@ -934,6 +985,196 @@ export async function buildApiServer(deps: ApiDependencies) {
     const characterId = Number((request.params as { characterId: string }).characterId);
     const claims = await deps.readModel.getClaimableEpochs(characterId);
     return claims;
+  });
+
+  app.post("/grok/session", async (request, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    const body = request.body as { clientId?: unknown } | null | undefined;
+    const clientId = typeof body?.clientId === "string" && body.clientId.trim().length > 0 ? body.clientId : null;
+    const ip = extractRequestIp(request);
+    const sessionId = await grokArena.createSession("web", clientId, ip);
+    return reply.status(200).send({ sessionId });
+  });
+
+  app.post("/grok/prompt", async (request, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    const body = request.body as { sessionId?: unknown; message?: unknown; clientId?: unknown } | null | undefined;
+    const sessionId = typeof body?.sessionId === "string" ? body.sessionId.trim() : "";
+    const message = typeof body?.message === "string" ? body.message : "";
+    const clientId = typeof body?.clientId === "string" && body.clientId.trim().length > 0 ? body.clientId : null;
+    if (!sessionId) {
+      return reply.status(400).send({ error: "missing_session_id" });
+    }
+    try {
+      const ip = extractRequestIp(request);
+      const { runId, messageId } = await grokArena.submitPrompt({
+        sessionId,
+        message,
+        clientId,
+        ip
+      });
+      return reply.status(200).send({
+        runId,
+        messageId,
+        streamUrl: `/grok/stream?runId=${encodeURIComponent(runId)}`
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (message === "session_busy") {
+        return reply.status(429).send({ error: "session_busy" });
+      }
+      if (message === "empty_message") {
+        return reply.status(400).send({ error: "empty_message" });
+      }
+      if (message === "message_too_long") {
+        return reply.status(413).send({ error: "message_too_long" });
+      }
+      if (message.startsWith("rate_limited")) {
+        return reply.status(429).send({ error: message });
+      }
+      return reply.status(502).send({ error: "grok_send_failed", reason: message });
+    }
+  });
+
+  app.get("/grok/stream", async (request, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    const query = request.query as { runId?: unknown } | undefined;
+    const runId = typeof query?.runId === "string" ? query.runId.trim() : "";
+    if (!runId) {
+      return reply.status(400).send({ error: "missing_run_id" });
+    }
+
+    reply.raw.setHeader("Content-Type", "text/event-stream");
+    reply.raw.setHeader("Cache-Control", "no-cache");
+    reply.raw.setHeader("Connection", "keep-alive");
+    reply.raw.setHeader("X-Accel-Buffering", "no");
+    reply.hijack();
+    reply.raw.flushHeaders?.();
+    writeSse(reply.raw, "ready", {});
+
+    let closed = false;
+    const keepAlive = setInterval(() => {
+      if (closed) return;
+      reply.raw.write(":\\n\\n");
+    }, 15_000);
+
+    let detach: (() => void) | null = null;
+    const onEvent = (event: { type: string; data: unknown }) => {
+      if (closed) return;
+      writeSse(reply.raw, event.type, event.data);
+      if (event.type === "final" || event.type === "error") {
+        closed = true;
+        clearInterval(keepAlive);
+        if (detach) detach();
+        reply.raw.end();
+      }
+    };
+
+    detach = grokArena.attach(runId, onEvent);
+
+    if (!detach) {
+      clearInterval(keepAlive);
+      writeSse(reply.raw, "error", { error: "run_not_found" });
+      reply.raw.end();
+      return reply;
+    }
+
+    if (grokArena.isRunClosed(runId)) {
+      closed = true;
+      clearInterval(keepAlive);
+      detach();
+      reply.raw.end();
+      return reply;
+    }
+
+    if (closed && detach) {
+      detach();
+    }
+
+    request.raw.on("close", () => {
+      if (closed) return;
+      closed = true;
+      clearInterval(keepAlive);
+      detach();
+    });
+    return reply;
+  });
+
+  app.post("/grok/clear", async (request, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    const body = request.body as { sessionId?: unknown } | null | undefined;
+    const sessionId = typeof body?.sessionId === "string" ? body.sessionId.trim() : undefined;
+    await grokArena.clearHistory(sessionId);
+    return reply.status(200).send({ ok: true });
+  });
+
+  app.get("/grok/history", async (request, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    const query = request.query as { limit?: unknown; sessionId?: unknown } | undefined;
+    const requested = Number(query?.limit ?? deps.env.GROK_HISTORY_LIMIT);
+    const limit = Number.isFinite(requested)
+      ? Math.min(Math.max(requested, 1), deps.env.GROK_HISTORY_LIMIT)
+      : deps.env.GROK_HISTORY_LIMIT;
+    const sessionId = typeof query?.sessionId === "string" ? query.sessionId.trim() : "";
+    const items = sessionId ? await grokArena.getHistory(limit, sessionId) : await grokArena.getHistory(limit);
+    return reply.status(200).send({ items });
+  });
+
+  app.get("/grok/status", async (_, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    const status = grokArena.getStatus();
+    let agentCharacterId: number | null = null;
+    if (deps.env.GROK_AGENT_ADDRESS) {
+      try {
+        const result = await deps.readModel.listMyCharacters(deps.env.GROK_AGENT_ADDRESS as `0x${string}`);
+        const items = Array.isArray((result as any)?.items) ? ((result as any).items as any[]) : [];
+        const top = items.reduce<{ characterId: number; bestLevel: number } | null>((acc, item) => {
+          const bestLevel = Number(item?.bestLevel ?? 0);
+          const characterId = Number(item?.characterId ?? 0);
+          if (!characterId) return acc;
+          if (!acc || bestLevel > acc.bestLevel) return { characterId, bestLevel };
+          return acc;
+        }, null);
+        agentCharacterId = top?.characterId ?? null;
+      } catch {
+        agentCharacterId = null;
+      }
+    }
+    return reply.status(200).send({
+      ...status,
+      agentAddress: deps.env.GROK_AGENT_ADDRESS ?? null,
+      agentCharacterId
+    });
+  });
+
+  app.get("/grok/agent", async (_, reply) => {
+    const grokArena = deps.grokArena;
+    if (!grokArena) {
+      return reply.status(503).send({ error: "grok_unavailable" });
+    }
+    if (!deps.env.GROK_AGENT_ADDRESS) {
+      return reply.status(503).send({ error: "agent_unconfigured" });
+    }
+    const payload = await deps.readModel.listMyCharacters(deps.env.GROK_AGENT_ADDRESS as `0x${string}`);
+    return reply.status(200).send(payload);
   });
 
   app.get("/market/rfqs", async (request, reply) => {
@@ -1733,4 +1974,17 @@ function requireApiKey(deps: ApiDependencies) {
       return reply.status(401).send({ error: "unauthorized" });
     }
   };
+}
+
+function extractRequestIp(request: any): string | null {
+  const forwarded = request.headers?.["x-forwarded-for"];
+  if (typeof forwarded === "string" && forwarded.trim().length > 0) {
+    return forwarded.split(",")[0]?.trim() ?? null;
+  }
+  return typeof request.ip === "string" ? request.ip : null;
+}
+
+function writeSse(response: import("node:http").ServerResponse, event: string, data: unknown): void {
+  response.write(`event: ${event}\n`);
+  response.write(`data: ${JSON.stringify(data)}\n\n`);
 }

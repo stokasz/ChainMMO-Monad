@@ -14,6 +14,8 @@ import { applyContractsLatestToEnv, loadContractsLatestFile, resolveContractsLat
 import { ChainIndexer } from "./indexer/indexer.js";
 import { Database } from "./storage/db.js";
 import { runMigrations } from "./storage/migration-runner.js";
+import { GrokArena } from "./grok/arena.js";
+import { OpenClawGatewayClient } from "./grok/openclaw-client.js";
 
 async function main(): Promise<void> {
   const baseEnv = loadEnv();
@@ -32,6 +34,8 @@ async function main(): Promise<void> {
   const readModel = new AgentReadModel(env, db, chain);
   const actionMetrics = new ActionMetrics();
   const actionTxIntentBuilder = new ActionTxIntentBuilder(chain, env.CHAIN_ID);
+  let grokArena: GrokArena | undefined;
+  let openclawClient: OpenClawGatewayClient | undefined;
 
   let actionWorker: ActionWorker | undefined;
   let actionRepository: ActionRepository | undefined;
@@ -57,6 +61,23 @@ async function main(): Promise<void> {
     workerPromise = actionWorker.runForever();
   }
 
+  if (env.GROK_ARENA_ENABLED && env.GROK_OPENCLAW_GATEWAY_URL && env.GROK_OPENCLAW_GATEWAY_TOKEN) {
+    openclawClient = new OpenClawGatewayClient({
+      url: env.GROK_OPENCLAW_GATEWAY_URL,
+      token: env.GROK_OPENCLAW_GATEWAY_TOKEN,
+      requestTimeoutMs: env.GROK_OPENCLAW_REQUEST_TIMEOUT_MS,
+      clientName: env.GROK_OPENCLAW_CLIENT_ID,
+      clientDisplayName: env.GROK_OPENCLAW_CLIENT_DISPLAY_NAME,
+      clientVersion: env.GROK_OPENCLAW_CLIENT_VERSION,
+      mode: env.GROK_OPENCLAW_CLIENT_MODE,
+      platform: env.GROK_OPENCLAW_CLIENT_PLATFORM,
+      locale: env.GROK_OPENCLAW_CLIENT_LOCALE,
+      scopes: env.GROK_OPENCLAW_CLIENT_SCOPES
+    });
+    openclawClient.start();
+    grokArena = new GrokArena(env, db, openclawClient);
+  }
+
   const api = await buildApiServer({
     env,
     metrics: actionMetrics,
@@ -68,7 +89,8 @@ async function main(): Promise<void> {
     actionPreflight,
     actionCostEstimator,
     actionTxIntentBuilder,
-    actionValidMenu
+    actionValidMenu,
+    grokArena
   });
 
   const indexerPromise = indexer.runForever();
@@ -82,6 +104,7 @@ async function main(): Promise<void> {
     indexer.stop();
     const background = [workerPromise, indexerPromise].filter((p): p is Promise<void> => Boolean(p));
     await Promise.allSettled(background);
+    openclawClient?.stop();
     await api.close();
     await db.close();
     process.exit(0);

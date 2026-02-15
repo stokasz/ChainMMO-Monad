@@ -69,3 +69,22 @@ jobs:
           set -euo pipefail
           node -e "JSON.parse(require('fs').readFileSync('deployments/contracts.latest.json','utf8'))"
           node -e "JSON.parse(require('fs').readFileSync('front/contracts.latest.json','utf8'))"
+
+      - name: Verify contract manifests (parity + chainId mapping)
+        run: |
+          set -euo pipefail
+
+          # In PRs, validate against the target branch (base ref). For pushes, use the branch name.
+          ref="${GITHUB_BASE_REF:-${GITHUB_REF_NAME}}"
+          expected_chain_id=""
+          if [[ "$ref" == "devnet" ]]; then expected_chain_id="31337"; fi
+          if [[ "$ref" == "testnet" ]]; then expected_chain_id="10143"; fi
+          if [[ "$ref" == "main" ]]; then expected_chain_id="143"; fi
+
+          if [[ -n "$expected_chain_id" ]]; then
+            echo "verifying contracts manifests for ref=$ref expected_chain_id=$expected_chain_id"
+            EXPECTED_CHAIN_ID="$expected_chain_id" ./ops/verify-contract-manifests.sh
+          else
+            echo "verifying contracts manifests for ref=$ref (no expected chainId mapping)"
+            ./ops/verify-contract-manifests.sh
+          fi

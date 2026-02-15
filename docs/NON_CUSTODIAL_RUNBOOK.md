@@ -30,13 +30,14 @@ Goal: keep hosted middleware read-first while allowing headless gameplay with an
 
 ```sh
 curl -fsS -X POST https://test.chainmmo.com/agent/tx-intent \
-  -H 'x-api-key: YOUR_API_KEY_IF_REQUIRED' \
   -H 'content-type: application/json' \
   -d '{
     "actor":"0xYOUR_WALLET",
     "action":{"type":"start_dungeon","characterId":1,"difficulty":1,"dungeonLevel":2,"varianceMode":1}
   }'
 ```
+
+Note: if the hosted API is configured with `API_KEY`, include the `x-api-key` request header.
 
 4. Sign and broadcast `to/data/valueWei` with your own wallet/RPC.
 5. Poll chain/API state and continue loop.

@@ -4,6 +4,7 @@ import type { Env } from "../config/env.js";
 import { loadExternalTokensLatestFile, resolveExternalTokensLatestPath, type ExternalTokensLatest } from "../config/external-tokens.js";
 import { decodeLeaderboardCursor, encodeLeaderboardCursor } from "../shared/leaderboard.js";
 import { decodeAcceptedSetIds, isRfqExpired, rfqAcceptsSetId, toSetMaskBigInt } from "../shared/rfq.js";
+import { feeVaultWeightForDelta } from "../shared/fixed-point.js";
 import { castSignatures } from "../shared/cast-signatures.js";
 import {
   abilityChoiceValues,
@@ -682,6 +683,52 @@ export class AgentReadModel {
     };
   }
 
+  public async getRecentStateDeltas(limit = 100, sinceBlock?: number): Promise<Record<string, unknown>> {
+    const rows = await this.db.query<{
+      block_number: string;
+      log_index: number;
+      tx_hash: string;
+      character_id: string | null;
+      owner: string | null;
+      created_at: string;
+      kind: string;
+      payload: Record<string, unknown>;
+    }>(
+      `SELECT
+         ced.block_number,
+         ced.log_index,
+         ced.tx_hash,
+         ced.character_id,
+         c.owner,
+         ced.created_at,
+         ced.kind,
+         ced.payload
+       FROM compact_event_delta AS ced
+       LEFT JOIN characters AS c
+         ON c.character_id = ced.character_id
+       WHERE chain_id = $1
+         AND ($2::bigint IS NULL OR block_number > $2)
+       ORDER BY block_number DESC, log_index DESC
+       LIMIT $3`,
+          [this.env.CHAIN_ID, sinceBlock ?? null, Math.max(1, Math.min(100, limit))]
+    );
+
+    const headBlock = rows[0] ? Number(rows[0].block_number) : null;
+    return {
+      headBlock,
+      items: rows.map((row) => ({
+        blockNumber: Number(row.block_number),
+        logIndex: row.log_index,
+        txHash: row.tx_hash,
+        characterId: row.character_id === null ? null : Number(row.character_id),
+        owner: row.owner,
+        createdAt: row.created_at,
+        kind: row.kind,
+        payload: row.payload
+      })),
+    };
+  }
+
   public async getMarketRfqs(params: {
     limit: number;
     activeOnly: boolean;
@@ -785,8 +832,20 @@ export class AgentReadModel {
       }
     }
 
+    const countRows = await this.db.query<{ cnt: string; filled_cnt: string }>(
+      `SELECT
+         COUNT(*) FILTER (WHERE active = TRUE AND (expiry = 0 OR expiry >= $1)) AS cnt,
+         COUNT(*) FILTER (WHERE filled = TRUE) AS filled_cnt
+       FROM rfq_state`,
+      [nowUnix]
+    );
+    const totalActiveCount = Number(countRows[0]?.cnt ?? 0);
+    const totalFilledCount = Number(countRows[0]?.filled_cnt ?? 0);
+
     return {
       nowUnix,
+      totalActiveCount,
+      totalFilledCount,
       filters: {
         activeOnly: params.activeOnly,
         includeExpired: params.includeExpired,
@@ -889,10 +948,7 @@ export class AgentReadModel {
   }
 
   public getContractMeta(): Record<string, unknown> {
-    const xProfile =
-      this.env.X_PROFILE_URL === "https://x.com/chainmmo"
-        ? "https://x.com/stokasz"
-        : this.env.X_PROFILE_URL;
+    const xProfile = this.env.X_PROFILE_URL;
 
     return {
       chainId: this.env.CHAIN_ID,
@@ -1420,9 +1476,8 @@ export class AgentReadModel {
 }
 
 function estimateWeight(delta: number): bigint {
-  const clamped = Math.min(delta, 256);
-  const weight = Math.pow(1.1, clamped);
-  return BigInt(Math.floor(weight * 1e18));
+  // Avoid float -> bigint precision loss (delta is clamped in-contract).
+  return feeVaultWeightForDelta(delta);
 }
 
 function toBigIntSafe(value: unknown): bigint {

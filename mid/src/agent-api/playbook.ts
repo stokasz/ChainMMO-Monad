@@ -1,4 +1,4 @@
-import { promises as fs } from "node:fs";
+import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -12,9 +12,26 @@ export interface PlaybookSection extends PlaybookSectionIndex {
 }
 
 export function resolveDefaultPlaybookPath(): string {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  return path.resolve(__dirname, "../../playbook/MCP_PLAYBOOK.md");
+  // Prefer resolving from the process CWD so `node dist/main.js` (Docker WORKDIR=/app/mid)
+  // finds `/app/mid/playbook/MCP_PLAYBOOK.md` rather than a nonexistent `dist/playbook`.
+  const candidates = [
+    path.resolve(process.cwd(), "playbook/MCP_PLAYBOOK.md"),
+    path.resolve(process.cwd(), "mid/playbook/MCP_PLAYBOOK.md"),
+    (() => {
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      return path.resolve(__dirname, "../../playbook/MCP_PLAYBOOK.md");
+    })(),
+  ];
+
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  // Keep a deterministic fallback for logging/debugging.
+  return candidates[0]!;
 }
 
 export async function loadPlaybookSectionsFromFile(playbookPath: string): Promise<PlaybookSection[]> {
@@ -68,4 +85,3 @@ function slugify(input: string): string {
     .replace(/-+$/, "")
     .slice(0, 64);
 }
-

@@ -21,7 +21,7 @@ describe("contract meta", () => {
     expect(meta).not.toHaveProperty("rpcUrl");
   });
 
-  it("normalizes legacy X profile placeholders", () => {
+  it("uses the configured X profile URL", () => {
     const env = {
       CHAIN_ID: 10143,
       CHAIN_RPC_URL: "https://example.invalid/secret",
@@ -32,7 +32,7 @@ describe("contract meta", () => {
       TRADE_ESCROW_ADDRESS: "0x0000000000000000000000000000000000000005",
       RFQ_MARKET_ADDRESS: "0x0000000000000000000000000000000000000006",
       MMODISTRIBUTOR_ADDRESS: "0x0000000000000000000000000000000000000007",
-      X_PROFILE_URL: "https://x.com/chainmmo"
+      X_PROFILE_URL: "https://x.com/stokasz"
     } as any;
 
     const readModel = new AgentReadModel(env, {} as any, {} as any);

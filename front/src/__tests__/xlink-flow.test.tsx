@@ -1,18 +1,13 @@
 // @vitest-environment-options { "url": "https://chainmmo.com/" }
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render, waitFor } from "@testing-library/react";
 import { act } from "react";
 import App from "../App";
 
 describe("X linking flow", () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
   afterEach(() => {
     cleanup();
-    vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
     delete (window as any).ethereum;
@@ -31,6 +26,7 @@ describe("X linking flow", () => {
           ok: true,
           status: 200,
           json: async () => body,
+          text: async () => JSON.stringify(body),
         }) as any;
 
       if (url.endsWith(`/auth/x/pending/${encodeURIComponent(linkToken)}`)) {
@@ -66,6 +62,26 @@ describe("X linking flow", () => {
         return respond({});
       }
 
+      if (url.includes("/market/rfqs")) {
+        return respond({ nowUnix: 0, items: [] });
+      }
+
+      if (url.includes("/feed/recent")) {
+        return respond({ items: [] });
+      }
+
+      if (url.endsWith("/grok/session")) {
+        return respond({ sessionId: "session-test" });
+      }
+
+      if (url.endsWith("/grok/history")) {
+        return respond({ items: [] });
+      }
+
+      if (url.endsWith("/grok/status")) {
+        return respond({ online: true, queueDepth: 0, lastSeenAt: null });
+      }
+
       return respond({});
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -74,11 +90,11 @@ describe("X linking flow", () => {
       if (args?.method === "eth_requestAccounts") {
         return [wallet];
       }
+      if (args?.method === "eth_chainId") {
+        return "0x8f";
+      }
       if (args?.method === "personal_sign") {
-        // Delay resolve so React can commit the walletAddress update and rerun effects.
-        return new Promise((resolve) => {
-          window.setTimeout(() => resolve(`0x${"11".repeat(65)}`), 10);
-        });
+        return `0x${"11".repeat(65)}`;
       }
       throw new Error(`unexpected method: ${String(args?.method)}`);
     });
@@ -91,15 +107,12 @@ describe("X linking flow", () => {
       await Promise.resolve();
     });
 
-    await act(async () => {
-      vi.advanceTimersByTime(20);
-      await Promise.resolve();
+    await waitFor(() => {
+      const finalizeCalls = fetchMock.mock.calls.filter(([input]) => {
+        const url = typeof input === "string" ? input : String((input as any)?.url ?? "");
+        return url.endsWith("/auth/x/finalize");
+      });
+      expect(finalizeCalls.length).toBeGreaterThan(0);
     });
-
-    const finalizeCalls = fetchMock.mock.calls.filter(([url]) =>
-      typeof url === "string" && url.endsWith("/auth/x/finalize"),
-    );
-    expect(finalizeCalls.length).toBeGreaterThan(0);
   });
 });
-

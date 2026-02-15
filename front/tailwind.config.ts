@@ -5,83 +5,55 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: [
-          "Cormorant Garamond",
-          "ui-serif",
-          "Georgia",
-          "Cambria",
-          '"Times New Roman"',
-          "Times",
-          "serif"
-        ],
-        display: [
-          "Cinzel",
-          "Cormorant Garamond",
-          "ui-serif",
-          "Georgia",
-          "Cambria",
-          '"Times New Roman"',
-          "Times",
-          "serif"
-        ],
-        brand: [
-          "Cinzel Decorative",
-          "Cinzel",
-          "Cormorant Garamond",
-          "ui-serif",
-          "Georgia",
-          "Cambria",
-          '"Times New Roman"',
-          "Times",
-          "serif"
-        ],
-        mono: [
-          "ui-monospace",
-          "SFMono-Regular",
-          "Menlo",
-          "Monaco",
-          "Consolas",
-          '"Liberation Mono"',
-          '"Courier New"',
-          "monospace"
-        ]
+        sans: ["Berkeley Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Courier New", "monospace"],
+        mono: ["Berkeley Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Courier New", "monospace"],
+        display: ["Berkeley Mono", "ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Courier New", "monospace"]
       },
       fontSize: {
-        "ui-xs": ["0.75rem", { lineHeight: "1rem" }],
-        "ui-sm": ["0.875rem", { lineHeight: "1.25rem" }],
-        "ui-base": ["1rem", { lineHeight: "1.6rem" }],
-        "ui-lg": ["1.125rem", { lineHeight: "1.8rem" }],
-        "ui-xl": ["1.25rem", { lineHeight: "1.8rem" }],
-        "ui-2xl": ["1.5rem", { lineHeight: "2.1rem" }],
-        "ui-3xl": ["2rem", { lineHeight: "2.3rem", letterSpacing: "-0.02em" }],
-        "ui-display": ["2.5rem", { lineHeight: "1.05", letterSpacing: "-0.03em" }]
+        "t-xs": ["11px", { lineHeight: "14px", letterSpacing: "0.02em" }],
+        "t-sm": ["12px", { lineHeight: "16px", letterSpacing: "0.02em" }],
+        "t-base": ["14px", { lineHeight: "20px" }],
+        "t-md": ["15px", { lineHeight: "20px" }],
+        "t-lg": ["16px", { lineHeight: "22px", letterSpacing: "-0.01em" }],
+        "t-xl": ["18px", { lineHeight: "24px", letterSpacing: "-0.01em" }],
+        "t-display": ["22px", { lineHeight: "26px", letterSpacing: "-0.03em" }],
+        "t-stat": ["20px", { lineHeight: "24px", letterSpacing: "-0.01em" }]
       },
       colors: {
-        bonfire: { DEFAULT: "#E8A545", dim: "#C17328", deep: "#8B4513" },
-        ember: "#C17328",
-        ash: "#8B8B8B",
-        void: "#0A0A0A",
-        blood: "#8B0000",
-        steel: { DEFAULT: "#2A2A2E", light: "#3A3A40" },
-        "souls-gold": "#C8AA6E"
+        "bg-base": "#0C0D0F",
+        "bg-surface": "#13141A",
+        "bg-raised": "#1A1B23",
+        "bg-overlay": "#21222C",
+        "border-subtle": "#262733",
+        "border-medium": "#33344A",
+        "text-muted": "#5C5E72",
+        "text-secondary": "#8B8DA3",
+        "text-primary": "#C8CAD4",
+        "text-bright": "#EAEBF0",
+        muted: "#5C5E72",
+        accent: "#C8AA6E",
+        "accent-dim": "#9E8755",
+        "accent-glow": "rgba(200,170,110,0.15)",
+        positive: "#2ECC71",
+        "positive-dim": "#1B7A43",
+        warning: "#F39C12",
+        negative: "#E74C3C",
+        "negative-dim": "#8B2E25",
+        info: "#5DADE2",
+        "info-dim": "#2E6F8E"
       },
-      keyframes: {
-        "bonfire-flicker": {
-          "0%, 100%": {
-            boxShadow: "0 0 30px 8px rgba(232,165,69,0.12), 0 0 60px 20px rgba(193,115,40,0.06)"
-          },
-          "50%": {
-            boxShadow: "0 0 40px 12px rgba(232,165,69,0.22), 0 0 80px 30px rgba(193,115,40,0.10)"
-          }
-        },
-        "souls-pulse": {
-          "0%, 100%": { textShadow: "0 0 8px rgba(200,170,110,0.3)" },
-          "50%": { textShadow: "0 0 16px rgba(200,170,110,0.6)" }
-        }
+      boxShadow: {
+        "panel-alert": "0 0 24px rgba(200,170,110,0.18)",
+        "row-glow": "0 0 8px 0 rgba(200,170,110,0.18)",
       },
       animation: {
-        "bonfire-flicker": "bonfire-flicker 3s ease-in-out infinite",
-        "souls-pulse": "souls-pulse 2s ease-in-out infinite"
+        stream: "stream-dot 1.2s ease-in-out infinite"
+      },
+      keyframes: {
+        "stream-dot": {
+          "0%,100%": { opacity: 0.4 },
+          "50%": { opacity: 1 }
+        }
       }
     }
   }
