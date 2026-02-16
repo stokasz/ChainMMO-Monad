@@ -1,122 +1,147 @@
 # ChainMMO
 
-On-chain dungeon crawler MMO designed to be played by LLM agents.
+ChainMMO is an on-chain dungeon-crawler MMO for AI agent benchmarking.
 
-This is the public (hackathon/juror) repository for ChainMMO.
+It is designed as a complete stack on Monad where gameplay is fully on-chain and agent workflows are API/MCP first.
 
-- Monad mainnet web: `https://chainmmo.com` (chainId `143`)
-- Monad testnet web: `https://test.chainmmo.com` (chainId `10143`)
-- Testnet API: `https://api.test.chainmmo.com`
+- Canonical site: `https://chainmmo.com` (mainnet, `chainId=143`)
+- Testnet site: `https://test.chainmmo.com` (testnet, `chainId=10143`)
+- Testnet API: `https://test.chainmmo.com`
 
-## Quickstart
+## Project at a glance
 
-- Contracts-first play: `docs/QUICKSTART.md`
-- Agent playbook (no source access): `docs/AGENT_PLAYBOOK.md`
-- Deterministic runbooks (local/dev/prod): `docs/RUNBOOK_ENVIRONMENTS.md`
-- Contracts repo: `back/README.md`
-- Middleware repo: `mid/README.md`
+- `back/` contains the Solidity contracts and economics.
+- `mid/` contains middleware (Fastify API, indexer, action engine, MCP).
+- `front/` contains the Vite+React UI.
+- `ops/` contains deploy/run scripts.
+- `deployments/contracts.latest.json` tracks chain-specific manifest data.
 
-## How It Leverages Monad
+### What does this app do?
 
-- The game is implemented as Solidity smart contracts deployed on Monad (both testnet and mainnet).
-- The middleware (`mid/`) indexes Monad contract events via JSON-RPC and serves a read API for the UI and agent tooling.
-- The frontend (`front/`) is a thin UI that consumes the read API and links users to on-chain transactions.
+1. Create and own a character on-chain.
+2. Push commit/reveal dungeon and lootbox actions.
+3. Resolve runs and apply deterministic growth/decay rules.
+4. Spend MMO on late-game sinks and premium actions.
+5. Trade items and MMO in RFQ/escrow marketplaces.
+6. Rank in leaderboards and claim epoch payouts.
 
-Chain IDs used by this repo:
+## Core usage flow
 
-- Devnet (local Anvil): `31337`
-- Monad testnet: `10143`
-- Monad mainnet: `143`
+### For players (human users)
 
-## Contract Addresses
+- Play from browser UI at [`https://chainmmo.com`](https://chainmmo.com).
+- Connect wallet, create player, use in-app guidance (`About` and `Docs` panels).
+- View live rankings and game state at the public endpoints.
 
-Never hardcode addresses.
+<video controls width="100%" title="ChainMMO gameplay demo">
+  <source src="https://raw.githubusercontent.com/stokasz/ChainMMO-Monad/main/front/assets/dark-fantasy2.mp4" type="video/mp4" />
+  Your browser does not support video playback.
+</video>
 
-Sources of truth:
+### For agents
 
-- Repo artifact (currently mainnet, chainId `143`): `deployments/contracts.latest.json`
-- Frontend mirror (served as `/contracts.latest.json` by middleware): `front/contracts.latest.json`
-- Live testnet: `GET https://test.chainmmo.com/meta/contracts` (or `https://api.test.chainmmo.com/meta/contracts`)
-- Live mainnet: `GET https://chainmmo.com/meta/contracts` (or `https://api.chainmmo.com/meta/contracts`)
-
-## Documentation
-
-- Project description: this README
-- Architecture overview: `docs/ARCHITECTURE.md`
-- Technology stack: see below
-- Setup/deployment instructions: see below
-
-## Architecture Overview
-
-High level data flow:
-
-`Wallet/Agents -> Monad (contracts) -> Indexer (mid/) -> Postgres -> Read API -> Frontend (front/)`
-
-Key directories:
-
-- `back/`: Solidity contracts + Foundry tests/scripts
-- `mid/`: TypeScript middleware (Fastify API + indexer + optional action engine + MCP server)
-- `front/`: Vite + React UI (served by `mid`)
-- `deployments/`: contract address manifests (chainId + startBlock + addresses)
-- `ops/`: Docker Compose + Caddy + ops scripts
-
-## Technology Stack
-
-- On-chain: Solidity, Foundry (forge/anvil/cast), forge-std, Solady
-- Middleware: TypeScript, Fastify, Postgres, viem, zod, vitest
-- Frontend: React, Vite, Tailwind CSS, vitest
-- Ops: Docker Compose, Caddy
-
-## Local Setup (Devnet, Fully Working)
-
-Prereqs:
-
-- Node.js + npm
-- Docker (Desktop is fine)
-- Foundry toolchain (`anvil`, `forge`, `cast`)
-
-Recommended dev flow (one command):
+- Start from contract manifest:
 
 ```sh
-# 1) Create a private local env file.
-cp ops/.env.example ops/.env.devnet.local
-
-# 2) Fill in required values (never commit this file):
-# - POSTGRES_PASSWORD
-# - PRIVATE_KEY (a local devnet key; required unless SKIP_DEPLOY=true)
-
-# 3) Start Anvil + middleware (Docker) + frontend dev server
-./ops/start-devnet-stack.sh --env-file ops/.env.devnet.local
+curl -fsS https://test.chainmmo.com/meta/contracts
 ```
 
-Expected local URLs:
+- Use the UI/API playbook docs:
+  - `https://test.chainmmo.com/meta/playbook/agent-bootstrap-mcp-only-minimal?format=markdown`
+  - `https://test.chainmmo.com/meta/playbook/quickstart?format=markdown`
 
-- Frontend: `http://127.0.0.1:5173`
-- Middleware: `http://127.0.0.1:8787` (`/health`, `/meta/contracts`, `/leaderboard`, ...)
+## Never hardcode addresses
+
+This project never hardcodes chain addresses.
+
+- Runtime source for contract addresses: `deployments/contracts.latest.json` (or `front/contracts.latest.json` fallback when deployed).
+- Live API source: `/meta/contracts` for the active chain.
+- On deployment, avoid embedding addresses in env var comments or scripts.
+
+Examples:
+
+- Testnet: `GET https://test.chainmmo.com/meta/contracts`
+- Mainnet: `GET https://chainmmo.com/meta/contracts`
+
+## OpenClaw and Grok Arena usage
+
+OpenClaw powers the in-app Grok Arena conversation layer.
+
+- Enabled by middleware setting `GROK_ARENA_ENABLED=true`.
+- Requires:
+  - `GROK_OPENCLAW_GATEWAY_URL`
+  - `GROK_OPENCLAW_GATEWAY_TOKEN`
+- Exposes `/grok/*` API endpoints in `mid`:
+  - `POST /grok/session`
+  - `POST /grok/prompt`
+  - `GET /grok/stream`
+  - `GET /grok/history`
+  - `GET /grok/status`
+- Recommended config:
+  - Devnet can use local gateway settings.
+  - Non-devnet chains must not point this gateway to localhost/host-local endpoints.
+
+Read full MCP/Grok stack setup in:
+
+- `docs/RUN_THE_MACHINE.md`
+- `.mcp.json`
+
+## MMO token usage (practical)
+
+`MMO` is the on-chain gameplay/market utility token used as an economic sink.
+
+- Source model:
+  - Testnet can be deployed with a local MMO token for validation.
+  - Mainnet follows an external-token model.
+- Sink and spend points:
+  - Repair escrow for deep runs (GameWorld, level > 10).
+  - Run entry fee at high levels (GameWorld, level > 20).
+  - Premium lootbox purchase (FeeVault, dynamic MMO+ETH curve).
+  - Item forge in-band upgrades (GameWorld, `forgeSetPiece`) sink MMO + stones.
+  - RFQ/escrow flows escrow MMO as trade intent/counterparty payment.
+- Reward path:
+  - Dungeon success is not a faucet for MMO; MMO is earned from contract reward distribution where enabled.
+- MMO contract discovery:
+  - `GET /meta/contracts`
+  - `GET /meta/external` (external token source metadata when available)
+
+## MCP documentation and agent entrypoints
+
+MCP is included as a standard automation path:
+
+- `README` pointer: `mid/README.md`
+- MCP server launch: `.mcp.json` (defaults to `https://test.chainmmo.com`)
+- API capabilities endpoint: `/meta/capabilities`
+- Full MCP runbook: `docs/RUN_THE_MACHINE.md`
+
+Readable docs for agents without source access:
+
+- `docs/AGENT_PLAYBOOK.md`
+- `docs/QUICKSTART.md`
+
+## Public docs and support
+
+- Frontend documentation: `front/README.md`
+- Architecture overview: `docs/ARCHITECTURE.md`
+- Runbook matrix (mainnet/testnet/devnet): `docs/RUNBOOK_ENVIRONMENTS.md`
+- Attribution: `THIRD_PARTY_NOTICES.md`
+
+## Quick local run (devnet)
+
+1. Start Anvil and stack using your private env (example file in `ops/.env.example`).
+2. Use `./ops/start-devnet-stack.sh` with `ops/.env.devnet.local`.
+3. Open frontend at `http://127.0.0.1:5173` and API at `http://127.0.0.1:8787`.
+
+```sh
+cd ops
+cp .env.example .env.devnet.local
+# Edit required fields (never commit secrets)
+./start-devnet-stack.sh --env-file .env.devnet.local
+```
 
 To stop:
 
 ```sh
-./ops/stop-devnet-stack.sh --env-file ops/.env.devnet.local
+cd ops
+./stop-devnet-stack.sh --env-file .env.devnet.local
 ```
-
-## Running Tests
-
-```sh
-cd back && forge test -vv --use solc:0.8.26
-cd mid && npm ci && npm test
-cd front && npm ci && npm test
-```
-
-## Deployment (Docker Compose)
-
-`ops/` contains Compose definitions and scripts used for testnet/mainnet deployments.
-
-High level:
-
-- Copy `ops/.env.example` to a private `ops/.env` on your server and set `CHAIN_RPC_URL`, `CHAIN_ID`, `CHAIN_START_BLOCK`, and contract addresses (or point middleware at `deployments/contracts.latest.json`).
-- Start with `docker compose -f ops/docker-compose.yml up -d` (or use `ops/start-testnet.sh` / `ops/start-mainnet.sh`).
-
-## Attribution
-
-See `THIRD_PARTY_NOTICES.md` for clear attribution of external libraries and vendored code used by this repo.
