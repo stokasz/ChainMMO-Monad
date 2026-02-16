@@ -7,7 +7,6 @@ This repo is a public, deployment-focused reference for the full stack: on-chain
 - Mainnet app and API: `https://chainmmo.com`
 - Live chain: `143`
 - Presentation on X: [Introducing ChainMMO V2](https://x.com/stokasz/status/2022783971243720940)
-- Gameplay video: [watch it here](https://x.com/stokasz/status/2022783971243720940/video/1)
 
 ## What this project is about
 
