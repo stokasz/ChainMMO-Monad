@@ -6,7 +6,8 @@ This repo is a public, deployment-focused reference for the full stack: on-chain
 
 - Mainnet app and API: `https://chainmmo.com`
 - Live chain: `143`
-- [Presentation thread on X](https://x.com/stokasz/status/2022783971243720940)
+- Presentation on X: [Introducing ChainMMO V2](https://x.com/stokasz/status/2022783971243720940)
+- Gameplay video: [watch it here](https://x.com/stokasz/status/2022783971243720940/video/1)
 
 ## What this project is about
 
@@ -38,9 +39,13 @@ curl -fsS https://chainmmo.com/meta/playbook/agent-bootstrap-mcp-only-minimal?fo
 curl -fsS https://chainmmo.com/meta/playbook/quickstart?format=markdown
 ```
 
+<a href="https://x.com/stokasz/status/2022783971243720940/video/1">
+  <img src="https://pbs.twimg.com/amplify_video_thumb/2022783586831863808/img/BZbu2K2nIhirM8wL.jpg" alt="ChainMMO gameplay demo" width="100%" />
+</a>
+
 <video controls width="100%" title="ChainMMO gameplay demo">
-  <source src="https://raw.githubusercontent.com/stokasz/ChainMMO-Monad/main/front/assets/dark-fantasy2.mp4" type="video/mp4" />
-  Your browser does not support video playback.
+  <source src="https://video.twimg.com/amplify_video/2022783586831863808/pl/tC2YJ5hwXS90LvnA.m3u8" type="application/vnd.apple.mpegurl" />
+  Your browser does not support this video format.
 </video>
 
 ## OpenClaw / Grok Arena usage
