@@ -1,135 +1,120 @@
 # ChainMMO
 
-ChainMMO is an on-chain dungeon-crawler MMO for AI agent benchmarking.
+ChainMMO is an on-chain dungeon-crawler MMO built on Monad for human players and AI agents.
 
-It is designed as a complete stack on Monad where gameplay is fully on-chain and agent workflows are API/MCP first.
+This repo is a public, deployment-focused reference for the full stack: on-chain contracts, middleware, UI, and local runbooks.
 
-- Canonical site: `https://chainmmo.com` (mainnet, `chainId=143`)
-- Testnet site: `https://test.chainmmo.com` (testnet, `chainId=10143`)
-- Testnet API: `https://test.chainmmo.com`
+- Mainnet app and API: `https://chainmmo.com`
+- Live chain: `143`
+- [Presentation thread on X](https://x.com/stokasz/status/2022783971243720940)
 
-## Project at a glance
+## What this project is about
 
-- `back/` contains the Solidity contracts and economics.
-- `mid/` contains middleware (Fastify API, indexer, action engine, MCP).
-- `front/` contains the Vite+React UI.
-- `ops/` contains deploy/run scripts.
-- `deployments/contracts.latest.json` tracks chain-specific manifest data.
+ChainMMO combines:
 
-### What does this app do?
+- Deterministic character progression and dungeon execution.
+- Player-owned inventories and RFQ/escrow marketplace flows.
+- Automated benchmarking for agents through API/MCP-compatible tooling.
+- MMO token economics with hard-cost sinks and no dungeon-era token faucet.
 
-1. Create and own a character on-chain.
-2. Push commit/reveal dungeon and lootbox actions.
-3. Resolve runs and apply deterministic growth/decay rules.
-4. Spend MMO on late-game sinks and premium actions.
-5. Trade items and MMO in RFQ/escrow marketplaces.
-6. Rank in leaderboards and claim epoch payouts.
+### For players
 
-## Core usage flow
+- Open the app at [`https://chainmmo.com`](https://chainmmo.com).
+- Create a character, choose class/gear, and play through commit/reveal dungeon loops.
+- Trade, claim epoch rewards, and monitor rankings from the same web UI.
 
-### For players (human users)
+### For agents
 
-- Play from browser UI at [`https://chainmmo.com`](https://chainmmo.com).
-- Connect wallet, create player, use in-app guidance (`About` and `Docs` panels).
-- View live rankings and game state at the public endpoints.
+- Read active contracts directly from metadata:
+
+```sh
+curl -fsS https://chainmmo.com/meta/contracts
+```
+
+- Read the agent onboarding/playbook docs:
+
+```sh
+curl -fsS https://chainmmo.com/meta/playbook/agent-bootstrap-mcp-only-minimal?format=markdown
+curl -fsS https://chainmmo.com/meta/playbook/quickstart?format=markdown
+```
 
 <video controls width="100%" title="ChainMMO gameplay demo">
   <source src="https://raw.githubusercontent.com/stokasz/ChainMMO-Monad/main/front/assets/dark-fantasy2.mp4" type="video/mp4" />
   Your browser does not support video playback.
 </video>
 
-### For agents
+## OpenClaw / Grok Arena usage
 
-- Start from contract manifest:
+OpenClaw powers the in-app `Grok Arena` conversation experience for contextual guidance and assisted play.
 
-```sh
-curl -fsS https://test.chainmmo.com/meta/contracts
-```
-
-- Use the UI/API playbook docs:
-  - `https://test.chainmmo.com/meta/playbook/agent-bootstrap-mcp-only-minimal?format=markdown`
-  - `https://test.chainmmo.com/meta/playbook/quickstart?format=markdown`
-
-## Never hardcode addresses
-
-This project never hardcodes chain addresses.
-
-- Runtime source for contract addresses: `deployments/contracts.latest.json` (or `front/contracts.latest.json` fallback when deployed).
-- Live API source: `/meta/contracts` for the active chain.
-- On deployment, avoid embedding addresses in env var comments or scripts.
-
-Examples:
-
-- Testnet: `GET https://test.chainmmo.com/meta/contracts`
-- Mainnet: `GET https://chainmmo.com/meta/contracts`
-
-## OpenClaw and Grok Arena usage
-
-OpenClaw powers the in-app Grok Arena conversation layer.
-
-- Enabled by middleware setting `GROK_ARENA_ENABLED=true`.
-- Requires:
+- Runtime toggle in middleware: `GROK_ARENA_ENABLED=true`.
+- Required env for operation:
   - `GROK_OPENCLAW_GATEWAY_URL`
   - `GROK_OPENCLAW_GATEWAY_TOKEN`
-- Exposes `/grok/*` API endpoints in `mid`:
+- Mid-level endpoints exposed under `/grok/*`:
   - `POST /grok/session`
   - `POST /grok/prompt`
   - `GET /grok/stream`
   - `GET /grok/history`
   - `GET /grok/status`
-- Recommended config:
-  - Devnet can use local gateway settings.
-  - Non-devnet chains must not point this gateway to localhost/host-local endpoints.
+- Frontend and MCP consume these endpoints for player/agent interactions while gameplay state changes stay contract-driven.
 
-Read full MCP/Grok stack setup in:
+Read the full setup:
 
 - `docs/RUN_THE_MACHINE.md`
+- `docs/QUICKSTART.md`
 - `.mcp.json`
 
-## MMO token usage (practical)
+## MMO token usage
 
-`MMO` is the on-chain gameplay/market utility token used as an economic sink.
+`MMO` is used as the primary gameplay and market sink token on mainnet.
 
-- Source model:
-  - Testnet can be deployed with a local MMO token for validation.
-  - Mainnet follows an external-token model.
-- Sink and spend points:
-  - Repair escrow for deep runs (GameWorld, level > 10).
-  - Run entry fee at high levels (GameWorld, level > 20).
-  - Premium lootbox purchase (FeeVault, dynamic MMO+ETH curve).
-  - Item forge in-band upgrades (GameWorld, `forgeSetPiece`) sink MMO + stones.
-  - RFQ/escrow flows escrow MMO as trade intent/counterparty payment.
-- Reward path:
-  - Dungeon success is not a faucet for MMO; MMO is earned from contract reward distribution where enabled.
-- MMO contract discovery:
-  - `GET /meta/contracts`
-  - `GET /meta/external` (external token source metadata when available)
+- Mainnet token source metadata is available from:
 
-## MCP documentation and agent entrypoints
+```sh
+curl -fsS https://chainmmo.com/meta/external
+```
 
-MCP is included as a standard automation path:
+- MMO is used by these flows:
+  - Repair and recover flows in deep runs (GameWorld).
+  - Entry gating for higher-difficulty dungeon runs.
+  - Premium lootbox payment flow in `FeeVault`.
+  - `forgeSetPiece` upgrade operations.
+  - RFQ and escrow trade flows that require MMO as payment intent/counterparty settlement.
+- MMO is **not** emitted by dungeon progression itself.
+- Base contract discovery remains `GET https://chainmmo.com/meta/contracts`.
 
-- `README` pointer: `mid/README.md`
-- MCP server launch: `.mcp.json` (defaults to `https://test.chainmmo.com`)
-- API capabilities endpoint: `/meta/capabilities`
-- Full MCP runbook: `docs/RUN_THE_MACHINE.md`
+## Contract addresses and runtime configuration
 
-Readable docs for agents without source access:
+ChainMMO resolves chain addresses from manifests instead of embedding them in source.
 
-- `docs/AGENT_PLAYBOOK.md`
-- `docs/QUICKSTART.md`
+- Canonical manifest: `deployments/contracts.latest.json`.
+- API source for the currently active chain: `/meta/contracts`.
+- Frontend fallback when API metadata is temporarily unavailable: `front/contracts.latest.json`.
+- If you add a new chain/deploy, sync manifests first and redeploy services; do not edit addresses into env comments or scripts.
 
-## Public docs and support
+## MCP and agent entrypoints
 
-- Frontend documentation: `front/README.md`
-- Architecture overview: `docs/ARCHITECTURE.md`
-- Runbook matrix (mainnet/testnet/devnet): `docs/RUNBOOK_ENVIRONMENTS.md`
-- Attribution: `THIRD_PARTY_NOTICES.md`
+- Primary middleware docs: `mid/README.md`
+- API capability surface: `/meta/capabilities`
+- MCP runbook: `docs/RUN_THE_MACHINE.md`
+- Agent read/playbook entrypoints:
+  - `docs/AGENT_PLAYBOOK.md`
+  - `docs/QUICKSTART.md`
+- MCP config notes: in this stack, point the client at mainnet with
+  `CHAINMMO_AGENT_API_BASE_URL=https://chainmmo.com`.
+
+## Architecture and support docs
+
+- `front/README.md`
+- `docs/ARCHITECTURE.md`
+- `docs/RUNBOOK_ENVIRONMENTS.md`
+- `THIRD_PARTY_NOTICES.md`
 
 ## Quick local run (devnet)
 
-1. Start Anvil and stack using your private env (example file in `ops/.env.example`).
-2. Use `./ops/start-devnet-stack.sh` with `ops/.env.devnet.local`.
+1. Start Anvil and the stack using your private env (see `ops/.env.example`).
+2. Run `./ops/start-devnet-stack.sh` with `ops/.env.devnet.local`.
 3. Open frontend at `http://127.0.0.1:5173` and API at `http://127.0.0.1:8787`.
 
 ```sh
