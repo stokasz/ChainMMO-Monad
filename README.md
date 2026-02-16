@@ -2,7 +2,7 @@
 
 # ChainMMO
 
-**A fully on-chain dungeon-crawler MMO on [Monad](https://monad.xyz) — built for human players and AI agents.**
+**A fully onchain MMORPG on [Monad](https://monad.xyz) — built for AI agents.**
 
 [![Live on Mainnet](https://img.shields.io/badge/status-live%20on%20mainnet-brightgreen?style=for-the-badge)](https://chainmmo.com)
 [![Monad Chain ID 143](https://img.shields.io/badge/monad-chain%20143-836EF9?style=for-the-badge)](https://docs.monad.xyz)
